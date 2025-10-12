@@ -27,6 +27,7 @@ const ControlPanel = ({
   onOpenSpeedPanel,
   onOpenRoutePanel,
   onEnableRandomAutopilot,
+  onSplitFromFormation,
   onOpenDrawingPanel,
   onOpenAirborneSpawnPanel,
   onOpenILSPanel,
@@ -122,6 +123,14 @@ const ControlPanel = ({
       ...prev,
       [deltaName]: !prev[deltaName]
     }));
+  };
+
+  // Helper function to check if aircraft is a trail member (not leader, not split)
+  const isTrailMember = (plane) => {
+    return plane &&
+           plane.isFormationMember &&
+           !plane.formationLeader &&
+           !plane.isSplit;
   };
 
   return (
@@ -439,23 +448,23 @@ const ControlPanel = ({
               <button
                 onClick={() => {
                   const plane = aircraft.find(p => p.id === selectedAircraft);
-                  if (plane && plane.state === AIRCRAFT_STATES.PARKED) {
+                  if (plane && plane.state === AIRCRAFT_STATES.PARKED && !isTrailMember(plane)) {
                     onTakeoffCommand(selectedAircraft);
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.state === AIRCRAFT_STATES.PARKED)}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft)) || !aircraft.find(p => p.id === selectedAircraft && p.state === AIRCRAFT_STATES.PARKED)}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft && aircraft.find(p => p.id === selectedAircraft && p.state === AIRCRAFT_STATES.PARKED)
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft)) && aircraft.find(p => p.id === selectedAircraft && p.state === AIRCRAFT_STATES.PARKED)
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Take Off
               </button>
-              {(!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.state === AIRCRAFT_STATES.PARKED)) && (
+              {((!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.state === AIRCRAFT_STATES.PARKED)) || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Aircraft must be parked on runway.'}
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : isTrailMember(aircraft.find(p => p.id === selectedAircraft)) ? 'Trail formation members cannot execute commands. Use Split first.' : 'Aircraft must be parked on runway.'}
                 </div>
               )}
             </div>
@@ -464,23 +473,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenAssignSIDPanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Assign SID
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -489,23 +498,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenHeadingPanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Turn to Heading
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -514,23 +523,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenAltitudePanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Climb/Descend to Altitude
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -539,23 +548,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenSpeedPanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Assign Speed
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -564,23 +573,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenRoutePanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Assign Route
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -591,29 +600,29 @@ const ControlPanel = ({
                 onClick={() => {
                   if (selectedAircraft) {
                     const plane = aircraft.find(p => p.id === selectedAircraft);
-                    if (plane && plane.type === 'VFR') {
+                    if (plane && plane.type === 'VFR' && !isTrailMember(plane)) {
                       onEnableRandomAutopilot(selectedAircraft);
                       setCommandsMenuOpen(false);
                     }
                   }
                 }}
-                disabled={!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.type === 'VFR')}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft)) || !aircraft.find(p => p.id === selectedAircraft && p.type === 'VFR')}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft && aircraft.find(p => p.id === selectedAircraft && p.type === 'VFR')
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft)) && aircraft.find(p => p.id === selectedAircraft && p.type === 'VFR')
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Random VFR Autopilot
               </button>
-              {selectedAircraft && !aircraft.find(p => p.id === selectedAircraft && p.type === 'VFR') && (
+              {selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft)) && !aircraft.find(p => p.id === selectedAircraft && p.type === 'VFR') && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
                   Only available for VFR aircraft.
                 </div>
               )}
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -622,23 +631,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenDrawingPanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Draw Route
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -647,23 +656,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenHoldingPanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Holding
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -672,23 +681,23 @@ const ControlPanel = ({
             <div className="relative group">
               <button
                 onClick={() => {
-                  if (selectedAircraft) {
+                  if (selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))) {
                     onOpenOrbitPanel();
                     setCommandsMenuOpen(false);
                   }
                 }}
-                disabled={!selectedAircraft}
+                disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
                 className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                  selectedAircraft
+                  selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
                     ? 'text-white hover:bg-gray-600 cursor-pointer'
                     : 'text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Orbit
               </button>
-              {!selectedAircraft && (
+              {(!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                 <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                  No plane selected. Please select a plane first.
+                  {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'Trail formation members cannot execute commands. Use Split first.'}
                 </div>
               )}
             </div>
@@ -714,24 +723,24 @@ const ControlPanel = ({
                     <button
                       onClick={() => {
                         const plane = aircraft.find(p => p.id === selectedAircraft);
-                        if (plane && plane.assignedAltitude <= 7000) {
+                        if (plane && plane.assignedAltitude <= 7000 && !isTrailMember(plane)) {
                           onOpenILSPanel();
                           setArrivalsSubmenuOpen(false);
                           setCommandsMenuOpen(false);
                         }
                       }}
-                      disabled={!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)}
+                      disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft)) || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)}
                       className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
-                        selectedAircraft && aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)
+                        selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft)) && aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)
                           ? 'text-white hover:bg-gray-600 cursor-pointer'
                           : 'text-gray-500 cursor-not-allowed'
                       }`}
                     >
                       ILS 30
                     </button>
-                    {(!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)) && (
+                    {((!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)) || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                       <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                        {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'The plane needs to be cleared to FL070 or lower'}
+                        {!selectedAircraft ? 'No plane selected. Please select a plane first.' : isTrailMember(aircraft.find(p => p.id === selectedAircraft)) ? 'Trail formation members cannot execute commands. Use Split first.' : 'The plane needs to be cleared to FL070 or lower'}
                       </div>
                     )}
                   </div>
@@ -741,24 +750,24 @@ const ControlPanel = ({
                     <button
                       onClick={() => {
                         const plane = aircraft.find(p => p.id === selectedAircraft);
-                        if (plane && plane.assignedAltitude <= 7000) {
+                        if (plane && plane.assignedAltitude <= 7000 && !isTrailMember(plane)) {
                           onOpenVORPanel();
                           setArrivalsSubmenuOpen(false);
                           setCommandsMenuOpen(false);
                         }
                       }}
-                      disabled={!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)}
+                      disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft)) || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)}
                       className={`w-full px-4 py-2 text-left font-mono text-sm ${
-                        selectedAircraft && aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)
+                        selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft)) && aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)
                           ? 'text-white hover:bg-gray-600 cursor-pointer'
                           : 'text-gray-500 cursor-not-allowed'
                       }`}
                     >
                       VOR 12R
                     </button>
-                    {(!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)) && (
+                    {((!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)) || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                       <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                        {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'The plane needs to be cleared to FL070 or lower'}
+                        {!selectedAircraft ? 'No plane selected. Please select a plane first.' : isTrailMember(aircraft.find(p => p.id === selectedAircraft)) ? 'Trail formation members cannot execute commands. Use Split first.' : 'The plane needs to be cleared to FL070 or lower'}
                       </div>
                     )}
                   </div>
@@ -768,29 +777,61 @@ const ControlPanel = ({
                     <button
                       onClick={() => {
                         const plane = aircraft.find(p => p.id === selectedAircraft);
-                        if (plane && plane.assignedAltitude <= 10000) {
+                        if (plane && plane.assignedAltitude <= 10000 && !isTrailMember(plane)) {
                           onOpenVisualPanel();
                           setArrivalsSubmenuOpen(false);
                           setCommandsMenuOpen(false);
                         }
                       }}
-                      disabled={!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 10000)}
+                      disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft)) || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 10000)}
                       className={`w-full px-4 py-2 text-left font-mono text-sm ${
-                        selectedAircraft && aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 10000)
+                        selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft)) && aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 10000)
                           ? 'text-white hover:bg-gray-600 cursor-pointer'
                           : 'text-gray-500 cursor-not-allowed'
                       }`}
                     >
                       Visual
                     </button>
-                    {(!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 10000)) && (
+                    {((!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 10000)) || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                       <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
-                        {!selectedAircraft ? 'No plane selected. Please select a plane first.' : 'The plane needs to be cleared to FL100 or lower'}
+                        {!selectedAircraft ? 'No plane selected. Please select a plane first.' : isTrailMember(aircraft.find(p => p.id === selectedAircraft)) ? 'Trail formation members cannot execute commands. Use Split first.' : 'The plane needs to be cleared to FL100 or lower'}
                       </div>
                     )}
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Split from Formation Button */}
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  if (selectedAircraft) {
+                    const plane = aircraft.find(p => p.id === selectedAircraft);
+                    if (plane && !isTrailMember(plane)) {
+                      // Button should be disabled, but prevent action if somehow clicked
+                      return;
+                    }
+                    onSplitFromFormation(selectedAircraft);
+                    setCommandsMenuOpen(false);
+                  }
+                }}
+                disabled={!selectedAircraft || !isTrailMember(aircraft.find(p => p.id === selectedAircraft))}
+                className={`w-full px-4 py-2 text-left font-mono text-sm border-b border-gray-600 ${
+                  selectedAircraft && isTrailMember(aircraft.find(p => p.id === selectedAircraft))
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white cursor-pointer'
+                    : 'bg-gray-600 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Split from Formation
+              </button>
+              <div className="hidden group-hover:block absolute left-full top-0 ml-2 bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
+                {!selectedAircraft
+                  ? 'No plane selected. Please select a plane first.'
+                  : !isTrailMember(aircraft.find(p => p.id === selectedAircraft))
+                  ? 'Only trail formation members can be split'
+                  : 'Break away from formation and fly independently'}
+              </div>
             </div>
 
             {/* Delete Plane Button */}

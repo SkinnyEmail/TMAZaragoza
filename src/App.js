@@ -22,6 +22,7 @@ import OrbitPanel from './OrbitPanel';
 import ScenarioLoadPanel from './ScenarioLoadPanel';
 import VORAssignPanel from './VORAssignPanel';
 import VisualAssignPanel from './VisualAssignPanel';
+import AircraftListPanel from './AircraftListPanel';
 import ControlPanel from './ControlPanel';
 import { HoldingEngine } from './holdingEngine';
 import { OrbitEngine } from './orbitEngine';
@@ -423,7 +424,7 @@ const ZaragozaTMASimulator = () => {
 
       formation.push({
         id: nextAircraftId + i,
-        callsign: spawnData.callsign,
+        callsign: i === 0 ? spawnData.callsign : `${spawnData.callsign}${i}`,
         position: position,
         altitude: 0,
         assignedAltitude: 0,
@@ -438,6 +439,8 @@ const ZaragozaTMASimulator = () => {
         isFormationMember: spawnData.formationSize > 1,
         formationPosition: i,
         formationLeader: i === 0,
+        formationLeaderId: nextAircraftId,           // ID of formation leader (first aircraft)
+        isSplit: false,                              // Whether split from formation
         // ATC Command properties
         assignedHeading: null,                       // Assigned heading (null = follow SID/route)
         assignedSpeed: null,                         // Assigned speed (null = use performance default)
@@ -514,7 +517,7 @@ const ZaragozaTMASimulator = () => {
 
       formation.push({
         id: nextAircraftId + i,
-        callsign: spawnData.callsign,
+        callsign: i === 0 ? spawnData.callsign : `${spawnData.callsign}${i}`,
         position: position,
         altitude: spawnData.flightLevel * 100,
         assignedAltitude: spawnData.flightLevel * 100,
@@ -529,6 +532,8 @@ const ZaragozaTMASimulator = () => {
         isFormationMember: spawnData.formationSize > 1,
         formationPosition: i,
         formationLeader: i === 0,
+        formationLeaderId: nextAircraftId,           // ID of formation leader (first aircraft)
+        isSplit: false,                              // Whether split from formation
         // Null values for unused fields
         assignedSID: null,
         sidWaypointIndex: 0,
@@ -758,6 +763,21 @@ const ZaragozaTMASimulator = () => {
       return plane;
     }));
     setShowRoutePanel(false);
+  };
+
+  const handleSplitFromFormation = (aircraftId) => {
+    setAircraft(prev => prev.map(plane => {
+      if (plane.id === aircraftId) {
+        console.log(`${plane.callsign}: Split from formation, now flying independently`);
+        return {
+          ...plane,
+          isSplit: true // Mark as split - will no longer follow leader
+          // Keep current navigation mode, altitude, speed, heading
+          // Aircraft continues doing what formation was doing, but now independent
+        };
+      }
+      return plane;
+    }));
   };
 
   const handleEnableRandomAutopilot = (aircraftId) => {
@@ -1029,7 +1049,7 @@ const ZaragozaTMASimulator = () => {
       // Update all aircraft positions and states
       setAircraft(prev => {
         const updatedAircraft = prev.map(plane =>
-          MovementEngine.updateAircraft(plane, adjustedDeltaTime, activeDelta)
+          MovementEngine.updateAircraft(plane, adjustedDeltaTime, activeDelta, prev)
         );
 
         // Remove aircraft that have landed or should be deleted (visual approach)
@@ -1225,15 +1245,14 @@ const ZaragozaTMASimulator = () => {
           onClick={handleCanvasClick}
         />
 
-        {/* Simulation Time Clock */}
-        <div className="absolute top-4 left-4 bg-gray-800 bg-opacity-60 text-gray-300 font-mono text-sm px-3 py-1.5 rounded border border-gray-600 pointer-events-none">
-          {(() => {
-            const totalSeconds = Math.floor(simulationTime);
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-          })()}
+        {/* Aircraft List Panel with integrated Clock */}
+        <div className="absolute top-4 left-4 z-10">
+          <AircraftListPanel
+            aircraft={aircraft}
+            selectedAircraft={selectedAircraft}
+            onSelectAircraft={setSelectedAircraft}
+            simulationTime={simulationTime}
+          />
         </div>
 
         {showSpawnPanel && (
@@ -1404,6 +1423,7 @@ const ZaragozaTMASimulator = () => {
         onOpenSpeedPanel={() => setShowSpeedPanel(true)}
         onOpenRoutePanel={() => setShowRoutePanel(true)}
         onEnableRandomAutopilot={handleEnableRandomAutopilot}
+        onSplitFromFormation={handleSplitFromFormation}
         onOpenDrawingPanel={() => setShowDrawingPanel(true)}
         onOpenILSPanel={() => setShowILSPanel(true)}
         onOpenVORPanel={() => setShowVORPanel(true)}

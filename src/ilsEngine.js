@@ -57,13 +57,8 @@ const ILSEngine = {
 
     let initialPhase;
     if (entry.type === 'straight') {
-      if (entryPoint === 'IF_ILS') {
-        // Straight-in from IF_ILS - need to fly to IF_ILS first
-        initialPhase = 'TO_IF';
-      } else {
-        // KEKAG - go straight to final approach (already on localizer)
-        initialPhase = 'IF_TO_FAP';
-      }
+      // KEKAG or IF_ILS - go straight to final approach
+      initialPhase = 'IF_TO_FAP';
     } else {
       // YARZU or GODPI - fly to entry point first
       initialPhase = 'TO_ENTRY';
@@ -73,11 +68,8 @@ const ILSEngine = {
 
     // Set initial altitude based on entry point
     let initialAltitude;
-    if (entryPoint === 'IF_ILS') {
-      // Straight-in from IF_ILS - descend to 4500 ft
-      initialAltitude = 4500;
-    } else if (entry.type === 'straight') {
-      // KEKAG goes to 5000
+    if (entry.type === 'straight') {
+      // IF_ILS and KEKAG go straight to 5000
       initialAltitude = 5000;
     } else if (entryPoint === 'YARZU') {
       // YARZU maintains current altitude up to FL070 (will stay at FL070 until passing entry)
@@ -141,6 +133,9 @@ const ILSEngine = {
       updatedAircraft.assignedAltitude = 5000;
     }
 
+    // Set approach speed
+    updatedAircraft.assignedSpeed = ILS_30R.speeds[aircraft.type].approach;
+
     // Within 2 NM of entry - transition to arc join
     if (distanceToEntry < 2.0) {
       console.log(`${aircraft.callsign}: Reached ${entryPointName}, joining arc`);
@@ -182,37 +177,40 @@ const ILSEngine = {
 
     const turnDirection = updatedAircraft.ilsApproach.arcDirection;
 
-    // Calculate an intercept point on the arc
-    // Pick a point 20-30° ahead on the arc in the direction we need to fly
-    let interceptRadial;
+    // Calculate tangent heading to arc
+    let targetHeading;
     if (turnDirection === 'CW') {
-      // Flying clockwise, intercept ahead
-      interceptRadial = currentRadial + 25;
+      // Clockwise: radial + 90 (fly perpendicular, turning right around arc)
+      targetHeading = (currentRadial + 90) % 360;
     } else {
-      // Flying counter-clockwise, intercept ahead
-      interceptRadial = currentRadial - 25;
+      // Counter-clockwise: radial - 90 (fly perpendicular, turning left around arc)
+      targetHeading = (currentRadial - 90 + 360) % 360;
     }
 
-    // Get the intercept point coordinates (on the arc at 17 NM)
-    const interceptPoint = CoordinateUtils.radialDistanceToLatLon(
-      ARP.lat, ARP.lon,
-      interceptRadial, arcRadius
-    );
+    // Simple DME correction: if too far, turn slightly inward; if too close, turn outward
+    const dmeDiff = currentDME - arcRadius;
+    if (dmeDiff > 1.0) {
+      // Too far - turn 10° toward ARP
+      targetHeading = (targetHeading - 10 + 360) % 360;
+    } else if (dmeDiff < -1.0) {
+      // Too close - turn 10° away from ARP
+      targetHeading = (targetHeading + 10) % 360;
+    }
 
-    // Fly directly toward the intercept point
-    const bearingToIntercept = ILSEngine.calculateBearing(
-      aircraft.position.lat, aircraft.position.lon,
-      interceptPoint.lat, interceptPoint.lon
-    );
-
-    updatedAircraft = ILSEngine.turnTowardsBearing(updatedAircraft, bearingToIntercept, performance.turnRate, deltaTime);
+    updatedAircraft = ILSEngine.turnTowardsBearing(updatedAircraft, targetHeading, performance.turnRate, deltaTime);
     updatedAircraft.assignedAltitude = 5000;
+    updatedAircraft.assignedSpeed = ILS_30R.speeds[aircraft.type].approach;
 
     // Check if on arc (loose tolerance: 15-19 NM is acceptable)
     const onArc = currentDME >= 15.0 && currentDME <= 19.0;
 
-    // Transition to ARC phase when on arc
-    if (onArc) {
+    // Calculate radial difference
+    let radialDiff = targetRadial - currentRadial;
+    if (radialDiff > 180) radialDiff -= 360;
+    if (radialDiff < -180) radialDiff += 360;
+
+    // If on arc and getting close to target radial (within 20°), transition to ARC phase
+    if (onArc && Math.abs(radialDiff) < 40) {
       console.log(`${aircraft.callsign}: Established on arc at ${currentRadial.toFixed(0)}°, ${currentDME.toFixed(1)} DME`);
       updatedAircraft.ilsApproach.phase = 'ARC';
     }
@@ -258,6 +256,7 @@ const ILSEngine = {
 
     updatedAircraft = ILSEngine.turnTowardsBearing(updatedAircraft, targetHeading, performance.turnRate, deltaTime);
     updatedAircraft.assignedAltitude = 5000;
+    updatedAircraft.assignedSpeed = ILS_30R.speeds[aircraft.type].approach;
 
     // Check if approaching IF radial
     let radialDiff = targetRadial - currentRadial;
@@ -276,7 +275,7 @@ const ILSEngine = {
     );
 
     // Exit arc when: within 25° of IF radial OR within 6 NM of IF position (loose conditions)
-    if (Math.abs(radialDiff) < 25 || distanceToIF < 6) {
+    if (Math.abs(radialDiff) < 50 || distanceToIF < 9) {
       console.log(`${aircraft.callsign}: Leaving arc at ${currentRadial.toFixed(0)}° (radialDiff: ${radialDiff.toFixed(1)}°, dist to IF: ${distanceToIF.toFixed(1)} NM), proceeding to IF`);
       updatedAircraft.ilsApproach.phase = 'TO_IF';
     }
@@ -307,13 +306,8 @@ const ILSEngine = {
     );
 
     let updatedAircraft = ILSEngine.turnTowardsBearing(aircraft, bearingToIF, performance.turnRate, deltaTime);
-
-    // Set altitude based on entry point
-    if (aircraft.ilsApproach.entryPoint === 'IF_ILS') {
-      updatedAircraft.assignedAltitude = 4500;
-    } else {
-      updatedAircraft.assignedAltitude = 5000;
-    }
+    updatedAircraft.assignedAltitude = 5000;
+    updatedAircraft.assignedSpeed = ILS_30R.speeds[aircraft.type].approach;
 
     // Within 1 NM of IF - transition to IF_TO_FAP
     if (distanceToIF < 1.0) {
@@ -351,6 +345,7 @@ const ILSEngine = {
 
     // Descend to 5000 ft while approaching KEKAG
     updatedAircraft.assignedAltitude = 5000;
+    updatedAircraft.assignedSpeed = ILS_30R.speeds[aircraft.type].final;
 
     // Check if we've passed KEKAG (for direct KEKAG entries)
     let passedKekag = true; // Default true for IF_ILS entries
@@ -378,7 +373,6 @@ const ILSEngine = {
       console.log(`${aircraft.callsign}: Passed entry point, established on localizer, beginning glideslope descent`);
       updatedAircraft.ilsApproach.phase = 'FINAL_APPROACH';
       updatedAircraft.state = AIRCRAFT_STATES.APPROACH;
-      updatedAircraft.assignedSpeed = ILS_30R.speeds[aircraft.type].final;
     }
 
     return updatedAircraft;
@@ -415,7 +409,7 @@ const ILSEngine = {
     if (updatedAircraft.altitude < ILS_30R.landing.transitionAltitude) {
       console.log(`${aircraft.callsign}: Entering landing phase at ${Math.round(updatedAircraft.altitude)} ft`);
       updatedAircraft.ilsApproach.phase = 'LANDING';
-      updatedAircraft.ilsApproach.landingElapsedTime = 0; // Start accumulating sim time
+      updatedAircraft.ilsApproach.landingStartTime = Date.now();
       updatedAircraft.state = AIRCRAFT_STATES.LANDING;
     }
 
@@ -444,13 +438,12 @@ const ILSEngine = {
       updatedAircraft.assignedSpeed = 0;
       updatedAircraft.altitude = 0; // Lock at ground level
 
-      // Accumulate simulation time
-      updatedAircraft.ilsApproach.landingElapsedTime =
-        (aircraft.ilsApproach.landingElapsedTime || 0) + deltaTime;
+      // Check if 7 seconds have passed
+      const landingStartTime = aircraft.ilsApproach.landingStartTime || Date.now();
+      const landingDuration = (Date.now() - landingStartTime) / 1000;
 
-      // Check if 7 seconds have passed (simulation time)
-      if (updatedAircraft.ilsApproach.landingElapsedTime >= 7) {
-        console.log(`${aircraft.callsign}: Landing roll complete (${updatedAircraft.ilsApproach.landingElapsedTime.toFixed(1)}s)`);
+      if (landingDuration >= 7) {
+        console.log(`${aircraft.callsign}: Landing roll complete`);
         updatedAircraft.landed = true;
       }
     } else {

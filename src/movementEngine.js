@@ -9,12 +9,39 @@ import { HoldingEngine } from './holdingEngine';
 import { OrbitEngine } from './orbitEngine';
 import { getWaypointByName } from './waypointDatabase';
 import { RandomAutopilotEngine } from './randomAutopilotEngine';
+import { FormationEngine } from './formationEngine';
 
 class MovementEngine {
-  static updateAircraft(aircraft, deltaTime, activeDeltas = {}) {
+  static updateAircraft(aircraft, deltaTime, activeDeltas = {}, allAircraft = []) {
     const performance = AIRCRAFT_PERFORMANCE[aircraft.type];
     let updatedAircraft = { ...aircraft };
 
+    // FORMATION TRAIL LOGIC - Priority override for trail members
+    // Trail members follow their leader instead of executing independent commands
+    if (updatedAircraft.isFormationMember &&
+        !updatedAircraft.formationLeader &&
+        !updatedAircraft.isSplit) {
+
+      // Find the formation leader
+      const leader = allAircraft.find(p => p.id === updatedAircraft.formationLeaderId);
+
+      if (leader) {
+        // Follow leader in trail formation
+        updatedAircraft = FormationEngine.updateFormationTrail(
+          updatedAircraft,
+          leader,
+          deltaTime,
+          performance
+        );
+
+        // Continue to altitude/speed/position updates below
+        // But skip all other navigation logic
+      }
+    }
+    // Only execute independent navigation if NOT in trail formation (or if split)
+    else if (!updatedAircraft.isFormationMember ||
+             updatedAircraft.formationLeader ||
+             updatedAircraft.isSplit) {
 
     // Handle navigation based on mode
     if (updatedAircraft.navigationMode === 'ILS_APPROACH' && updatedAircraft.ilsApproach) {
@@ -55,6 +82,8 @@ class MovementEngine {
       // Follow SID procedure
       updatedAircraft = SIDEngine.updateAircraftWithSID(updatedAircraft, deltaTime);
     }
+
+    } // End of independent navigation block
 
     // Handle altitude changes - transition state to DESCENDING/CLIMBING when altitude assignment changes
     if (updatedAircraft.state === AIRCRAFT_STATES.CRUISE || updatedAircraft.state === AIRCRAFT_STATES.DESCENDING || updatedAircraft.state === AIRCRAFT_STATES.CLIMBING) {
