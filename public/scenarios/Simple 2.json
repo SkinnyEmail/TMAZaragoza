@@ -1,0 +1,22 @@
+{
+  "name": "Simple 2",
+  "description": "Two aircraft - one to KEKAG, one to YARZU",
+  "aircraft": [
+    {
+      "callsign": "RYR4KP",
+      "type": "IFR",
+      "flightLevel": 150,
+      "waypoint": "KEKAG",
+      "timeToWaypoint": 4,
+      "spawnTime": 10
+    },
+    {
+      "callsign": "IBE123",
+      "type": "IFR",
+      "flightLevel": 150,
+      "waypoint": "YARZU",
+      "timeToWaypoint": 4,
+      "spawnTime": 15
+    }
+  ]
+}

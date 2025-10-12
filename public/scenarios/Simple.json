@@ -1,0 +1,14 @@
+{
+  "name": "Simple",
+  "description": "Single aircraft inbound KEKAG",
+  "aircraft": [
+    {
+      "callsign": "RYR4KP",
+      "type": "IFR",
+      "flightLevel": 150,
+      "waypoint": "KEKAG",
+      "timeToWaypoint": 4,
+      "spawnTime": 10
+    }
+  ]
+}
