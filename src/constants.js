@@ -88,7 +88,10 @@ const INSTRUMENTAL_POINTS = {
   'YARZU': { radial: 164.38, distance: 19.5 },
   'KEKAG': { radial: 118.55, distance: 19.5 },
   'GODPI': { radial: 78.19, distance: 20.0 },
-  'IF_ILS': { radial: 118.51, distance: 14.4 }
+  'IF_ILS': { radial: 118.51, distance: 14.4 },
+  // VOR 30R Approach Points
+  'IF_VOR30R': { radial: 108, distance: 16.0 },
+  'FAF_VOR30R': { radial: 108, distance: 6.0 }
 };
 
 const RUNWAY_DATA = {

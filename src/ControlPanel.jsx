@@ -745,7 +745,7 @@ const ControlPanel = ({
                     )}
                   </div>
 
-                  {/* VOR 12R Button */}
+                  {/* VOR Approach Button */}
                   <div className="relative group">
                     <button
                       onClick={() => {
@@ -763,7 +763,7 @@ const ControlPanel = ({
                           : 'text-gray-500 cursor-not-allowed'
                       }`}
                     >
-                      VOR 12R
+                      VOR
                     </button>
                     {((!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 7000)) || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                       <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">

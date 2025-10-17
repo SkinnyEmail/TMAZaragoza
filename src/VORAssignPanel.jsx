@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 const VORAssignPanel = ({ selectedAircraft, aircraft, onAssignVOR, onClose }) => {
+  const [runway, setRunway] = useState('12R');
   const [entryPoint, setEntryPoint] = useState('VOR');
   const [error, setError] = useState('');
 
@@ -22,12 +23,18 @@ const VORAssignPanel = ({ selectedAircraft, aircraft, onAssignVOR, onClose }) =>
       return;
     }
 
+    if (!runway) {
+      setError('Please select a runway');
+      return;
+    }
+
     if (!entryPoint) {
       setError('Please select an entry point');
       return;
     }
 
-    onAssignVOR(selectedAircraft, entryPoint);
+    // Pass runway and entryPoint to parent
+    onAssignVOR(selectedAircraft, runway, entryPoint);
   };
 
   const handleKeyPress = (e) => {
@@ -41,7 +48,7 @@ const VORAssignPanel = ({ selectedAircraft, aircraft, onAssignVOR, onClose }) =>
   return (
     <div className="fixed right-4 top-1/2 -translate-y-1/2 bg-gray-800 border-2 border-gray-600 rounded-lg shadow-2xl p-6 w-80 z-50">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-white font-bold text-lg font-mono">VOR 12R Approach</h2>
+        <h2 className="text-white font-bold text-lg font-mono">VOR Approach</h2>
         <button
           onClick={onClose}
           className="text-gray-400 hover:text-white text-xl font-bold"
@@ -73,7 +80,34 @@ const VORAssignPanel = ({ selectedAircraft, aircraft, onAssignVOR, onClose }) =>
 
       <div className="mb-4">
         <label className="block text-gray-300 font-mono text-sm mb-2">
-          Entry Point:
+          Runway:
+        </label>
+        <select
+          value={runway}
+          onChange={(e) => {
+            setRunway(e.target.value);
+            // Reset entry point when runway changes
+            if (e.target.value === '30R') {
+              setEntryPoint('FULL');
+            } else {
+              setEntryPoint('VOR');
+            }
+          }}
+          onKeyDown={handleKeyPress}
+          disabled={!isClearedForApproach}
+          className={`w-full px-3 py-2 bg-gray-700 text-white rounded font-mono border border-gray-600 focus:border-blue-500 focus:outline-none ${
+            !isClearedForApproach ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          autoFocus
+        >
+          <option value="12R">VOR RWY 12R</option>
+          <option value="30R">VOR RWY 30R</option>
+        </select>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-gray-300 font-mono text-sm mb-2">
+          Entry:
         </label>
         <select
           value={entryPoint}
@@ -83,10 +117,18 @@ const VORAssignPanel = ({ selectedAircraft, aircraft, onAssignVOR, onClose }) =>
           className={`w-full px-3 py-2 bg-gray-700 text-white rounded font-mono border border-gray-600 focus:border-blue-500 focus:outline-none ${
             !isClearedForApproach ? 'opacity-50 cursor-not-allowed' : ''
           }`}
-          autoFocus
         >
-          <option value="VOR">VOR (Full procedure from ZAR)</option>
-          <option value="IF_VOR">IF_VOR (Straight-in - 18.0 DME)</option>
+          {runway === '30R' ? (
+            <>
+              <option value="FULL">Full Procedure (via ZAR VOR)</option>
+              <option value="STRAIGHT_IN">Straight-In (Direct to IF at 16 DME)</option>
+            </>
+          ) : (
+            <>
+              <option value="VOR">Full Procedure (from ZAR VOR)</option>
+              <option value="IF_VOR">Straight-In (Direct to IF at 18 DME)</option>
+            </>
+          )}
         </select>
         {error && (
           <p className="text-red-400 text-sm font-mono mt-2">{error}</p>
@@ -102,14 +144,18 @@ const VORAssignPanel = ({ selectedAircraft, aircraft, onAssignVOR, onClose }) =>
             : 'bg-gray-600 text-gray-400 cursor-not-allowed'
         }`}
       >
-        Assign VOR 12R
+        Assign VOR {runway}
       </button>
 
       <div className="mt-4 pt-4 border-t border-gray-700">
         <p className="text-gray-400 text-xs font-mono">
-          {entryPoint === 'IF_VOR'
-            ? 'Straight-in: Aircraft will fly direct to IF at 18 DME (5000 ft) and begin approach.'
-            : 'Full procedure: Aircraft will fly to VOR, track radial 319° outbound to 18 DME, then turn inbound for approach.'}
+          {runway === '30R'
+            ? (entryPoint === 'STRAIGHT_IN'
+                ? 'Straight-in: Direct to IF (16 DME, R-108), descend on final approach track.'
+                : 'Full procedure: Via ZAR VOR, fly to IF (16 DME, R-108), then final approach.')
+            : (entryPoint === 'IF_VOR'
+                ? 'Straight-in: Direct to IF (18 DME), then inbound to FAF.'
+                : 'Full procedure: Via ZAR VOR, radial 300° outbound to 18 DME, turn inbound.')}
         </p>
       </div>
     </div>

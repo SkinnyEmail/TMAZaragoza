@@ -1,5 +1,6 @@
 import { RUNWAY_DATA } from './constants';
 import { VOR_12R } from './vorData';
+import { VOR_30R } from './vorData_30R';
 import { AIRCRAFT_STATES } from './aircraftStates';
 import { AIRCRAFT_PERFORMANCE } from './aircraftPerformance';
 
@@ -24,6 +25,21 @@ const VOREngine = {
       case 'TO_IF':
         updatedAircraft = VOREngine.updateToIFPhase(updatedAircraft, deltaTime, performance);
         break;
+      case 'TO_ZAR_30R':
+        updatedAircraft = VOREngine.updateToZAR_30R_Phase(updatedAircraft, deltaTime, performance);
+        break;
+      case 'OUTBOUND_30R':
+        updatedAircraft = VOREngine.updateOutbound_30R_Phase(updatedAircraft, deltaTime, performance);
+        break;
+      case 'TO_IF_30R':
+        updatedAircraft = VOREngine.updateToIF_30R_Phase(updatedAircraft, deltaTime, performance);
+        break;
+      case 'IF_TO_FAF_30R':
+        updatedAircraft = VOREngine.updateIFToFAF_30R_Phase(updatedAircraft, deltaTime, performance);
+        break;
+      case 'FINAL_APPROACH_30R':
+        updatedAircraft = VOREngine.updateFinalApproach_30R_Phase(updatedAircraft, deltaTime, performance);
+        break;
       case 'FAF_INBOUND':
         updatedAircraft = VOREngine.updateFAFInboundPhase(updatedAircraft, deltaTime, performance);
         break;
@@ -33,6 +49,9 @@ const VOREngine = {
       case 'LANDING':
         updatedAircraft = VOREngine.updateLandingPhase(updatedAircraft, deltaTime, performance);
         break;
+      case 'LANDING_30R':
+        updatedAircraft = VOREngine.updateLanding_30R_Phase(updatedAircraft, deltaTime);
+        break;
       default:
         console.warn(`Unknown VOR phase: ${phase}`);
     }
@@ -41,7 +60,7 @@ const VOREngine = {
   },
 
   /**
-   * Initialize VOR approach for an aircraft
+   * Initialize VOR approach for an aircraft (12R)
    */
   initializeVOR: (aircraft, entryPoint) => {
     const entry = VOR_12R.entryPoints[entryPoint];
@@ -66,11 +85,97 @@ const VOREngine = {
       ...aircraft,
       navigationMode: 'VOR_APPROACH',
       vorApproach: {
+        runway: '12R',
         entryPoint: entryPoint,
         phase: initialPhase
       },
       assignedAltitude: 5000
     };
+  },
+
+  /**
+   * Initialize VOR 30R approach for an aircraft
+   */
+  initializeVOR_30R: (aircraft, entryType) => {
+    let initialPhase;
+
+    if (entryType === 'STRAIGHT_IN') {
+      initialPhase = 'TO_IF_30R';
+      console.log(`${aircraft.callsign}: VOR 30R cleared straight-in (direct to IF at 16 DME)`);
+    } else {
+      // Full procedure - fly to ZAR VOR first
+      initialPhase = 'TO_ZAR_30R';
+      console.log(`${aircraft.callsign}: VOR 30R cleared full procedure (via ZAR VOR)`);
+    }
+
+    return {
+      ...aircraft,
+      navigationMode: 'VOR_APPROACH',
+      vorApproach: {
+        runway: '30R',
+        entryType: entryType,
+        phase: initialPhase
+      },
+      assignedAltitude: 5000
+    };
+  },
+
+  /**
+   * VOR 30R Phase: Fly to ZAR VOR (full procedure only)
+   */
+  updateToZAR_30R_Phase: (aircraft, deltaTime, performance) => {
+    const zarVOR = VOR_30R.iaf;
+
+    // Calculate distance and bearing to ZAR VOR
+    const distanceToVOR = VOREngine.calculateDistance(
+      aircraft.position.lat, aircraft.position.lon,
+      zarVOR.lat, zarVOR.lon
+    );
+
+    const bearingToVOR = VOREngine.calculateBearing(
+      aircraft.position.lat, aircraft.position.lon,
+      zarVOR.lat, zarVOR.lon
+    );
+
+    // Turn toward ZAR VOR
+    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, bearingToVOR, performance.turnRate, deltaTime);
+    updatedAircraft.assignedAltitude = 5000;
+    updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].initial;
+
+    // Within 1 NM of VOR - transition to outbound
+    if (distanceToVOR < 1.0) {
+      console.log(`${aircraft.callsign}: Over ZAR VOR, proceeding outbound on R-108 to 16 DME`);
+      updatedAircraft.vorApproach.phase = 'OUTBOUND_30R';
+    }
+
+    return updatedAircraft;
+  },
+
+  /**
+   * VOR 30R Phase: Outbound on R-108 to 16 DME (IF)
+   */
+  updateOutbound_30R_Phase: (aircraft, deltaTime, performance) => {
+    const zarVOR = VOR_30R.iaf;
+    const outboundTrack = 108; // Radial 108° FROM ZAR
+
+    // Calculate current DME from ZAR VOR
+    const currentDME = VOREngine.calculateDistance(
+      aircraft.position.lat, aircraft.position.lon,
+      zarVOR.lat, zarVOR.lon
+    );
+
+    // Turn to outbound track (fly heading 108° away from ZAR)
+    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, outboundTrack, performance.turnRate, deltaTime);
+    updatedAircraft.assignedAltitude = 5000;
+    updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].intermediate;
+
+    // Check if reached IF (16 DME)
+    if (currentDME >= VOR_30R.intermediatefix.dme) {
+      console.log(`${aircraft.callsign}: Reached IF at ${currentDME.toFixed(1)} DME, turning inbound on R-108`);
+      updatedAircraft.vorApproach.phase = 'IF_TO_FAF_30R';
+    }
+
+    return updatedAircraft;
   },
 
   /**
@@ -284,6 +389,162 @@ const VOREngine = {
     } else {
       // Still in air - slow to touchdown speed
       updatedAircraft.assignedSpeed = VOR_12R.landing.touchdownSpeed;
+    }
+
+    return updatedAircraft;
+  },
+
+  /**
+   * VOR 30R Phase 1: Navigate to Intermediate Fix (16 DME on R-108)
+   */
+  updateToIF_30R_Phase: (aircraft, deltaTime, performance) => {
+    const ifPosition = VOR_30R.intermediatefix;
+    const zarVOR = VOR_30R.iaf;
+
+    // Calculate distance to IF
+    const distanceToIF = VOREngine.calculateDistance(
+      aircraft.position.lat, aircraft.position.lon,
+      ifPosition.lat, ifPosition.lon
+    );
+
+    const bearingToIF = VOREngine.calculateBearing(
+      aircraft.position.lat, aircraft.position.lon,
+      ifPosition.lat, ifPosition.lon
+    );
+
+    // Turn toward IF
+    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, bearingToIF, performance.turnRate, deltaTime);
+    updatedAircraft.assignedAltitude = 5000;
+
+    // Progressive speed reduction when within 10 NM
+    if (distanceToIF < 10.0 && aircraft.speed > VOR_30R.speeds[aircraft.type].intermediate) {
+      updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].intermediate;
+    }
+
+    // Within 1.0 NM of IF - transition to IF_TO_FAF phase
+    if (distanceToIF < 1.0) {
+      console.log(`${aircraft.callsign}: Reached IF at 16 DME, turning inbound on R-108`);
+      updatedAircraft.vorApproach.phase = 'IF_TO_FAF_30R';
+    }
+
+    return updatedAircraft;
+  },
+
+  /**
+   * VOR 30R Phase 2: IF to FAF (16 DME to 6 DME on R-108 inbound)
+   */
+  updateIFToFAF_30R_Phase: (aircraft, deltaTime, performance) => {
+    const zarVOR = VOR_30R.iaf;
+    const fafPosition = VOR_30R.faf;
+
+    // Calculate current DME from ZAR VOR
+    const currentDME = VOREngine.calculateDistance(
+      aircraft.position.lat, aircraft.position.lon,
+      zarVOR.lat, zarVOR.lon
+    );
+
+    // Calculate bearing TO ZAR (should be ~288° to track R-108 inbound)
+    const bearingToZAR = VOREngine.calculateBearing(
+      aircraft.position.lat, aircraft.position.lon,
+      zarVOR.lat, zarVOR.lon
+    );
+
+    // Turn to track inbound on R-108 (heading ~288° TO ZAR)
+    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, bearingToZAR, performance.turnRate, deltaTime);
+    updatedAircraft.assignedAltitude = 5000;
+    updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].intermediate;
+
+    // Within 0.5 NM of FAF (6.0 DME) - transition to final approach
+    const distanceToFAF = Math.abs(currentDME - 6.0);
+    if (distanceToFAF < 0.5 || currentDME <= 6.0) {
+      console.log(`${aircraft.callsign}: Reached FAF at ${currentDME.toFixed(1)} DME, beginning final descent`);
+      updatedAircraft.vorApproach.phase = 'FINAL_APPROACH_30R';
+      updatedAircraft.state = AIRCRAFT_STATES.APPROACH;
+    }
+
+    return updatedAircraft;
+  },
+
+  /**
+   * VOR 30R Phase 3: Final Approach (FAF to threshold with DME-based descent)
+   */
+  updateFinalApproach_30R_Phase: (aircraft, deltaTime, performance) => {
+    const zarVOR = VOR_30R.iaf;
+    const threshold = RUNWAY_DATA['30R'].threshold;
+
+    // Calculate current DME from ZAR
+    const currentDME = VOREngine.calculateDistance(
+      aircraft.position.lat, aircraft.position.lon,
+      zarVOR.lat, zarVOR.lon
+    );
+
+    // Calculate distance to threshold
+    const distanceToThreshold = VOREngine.calculateDistance(
+      aircraft.position.lat, aircraft.position.lon,
+      threshold.lat, threshold.lon
+    );
+
+    // Maintain track to threshold
+    const bearingToThreshold = VOREngine.calculateBearing(
+      aircraft.position.lat, aircraft.position.lon,
+      threshold.lat, threshold.lon
+    );
+
+    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, bearingToThreshold, performance.turnRate, deltaTime);
+
+    // Calculate target altitude using DME-based descent profile
+    // At FAF (6.0 DME): 2400 ft
+    // Descend at 318 ft/NM
+    const distanceFromFAF = 6.0 - currentDME;
+    const targetAltitude = Math.max(834, 2400 - (distanceFromFAF * VOR_30R.descentRate));
+
+    updatedAircraft.assignedAltitude = targetAltitude;
+    updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].final;
+    updatedAircraft.state = AIRCRAFT_STATES.APPROACH;
+
+    // Below transition altitude - switch to landing
+    if (updatedAircraft.altitude < VOR_30R.landing.transitionAltitude) {
+      console.log(`${aircraft.callsign}: Entering landing phase at ${Math.round(updatedAircraft.altitude)} ft`);
+      updatedAircraft.vorApproach.phase = 'LANDING_30R';
+      updatedAircraft.vorApproach.landingElapsedTime = 0;
+      updatedAircraft.state = AIRCRAFT_STATES.LANDING;
+    }
+
+    return updatedAircraft;
+  },
+
+  /**
+   * VOR 30R Phase 4: Landing rollout
+   */
+  updateLanding_30R_Phase: (aircraft, deltaTime) => {
+    let updatedAircraft = { ...aircraft };
+
+    // Lock runway heading at 300°
+    const runwayHeading = RUNWAY_DATA['30R'].heading;
+    updatedAircraft.heading = runwayHeading;
+    updatedAircraft.assignedHeading = runwayHeading;
+
+    // Descend to ground
+    updatedAircraft.assignedAltitude = 0;
+
+    // Check if touched down
+    const hasTouchedDown = updatedAircraft.altitude <= 50;
+
+    if (hasTouchedDown) {
+      updatedAircraft.assignedSpeed = 0;
+      updatedAircraft.altitude = 0;
+
+      // Accumulate simulation time
+      updatedAircraft.vorApproach.landingElapsedTime =
+        (aircraft.vorApproach.landingElapsedTime || 0) + deltaTime;
+
+      // After 7 seconds, mark as landed
+      if (updatedAircraft.vorApproach.landingElapsedTime >= 7) {
+        console.log(`${aircraft.callsign}: Landing roll complete (${updatedAircraft.vorApproach.landingElapsedTime.toFixed(1)}s)`);
+        updatedAircraft.landed = true;
+      }
+    } else {
+      updatedAircraft.assignedSpeed = VOR_30R.landing.touchdownSpeed;
     }
 
     return updatedAircraft;

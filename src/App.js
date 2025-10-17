@@ -821,12 +821,18 @@ const ZaragozaTMASimulator = () => {
     setShowILSPanel(false);
   };
 
-  const handleAssignVOR = (aircraftId, entryPoint) => {
-    console.log(`Assigning VOR approach to aircraft ${aircraftId} via ${entryPoint}`);
+  const handleAssignVOR = (aircraftId, runway, entryPoint) => {
+    console.log(`Assigning VOR ${runway} approach to aircraft ${aircraftId} entry: ${entryPoint}`);
     setAircraft(prev => prev.map(plane => {
       if (plane.id === aircraftId) {
-        // Initialize VOR approach using VOREngine
-        const updatedPlane = VOREngine.initializeVOR(plane, entryPoint);
+        // Initialize VOR approach using appropriate VOREngine function
+        let updatedPlane;
+        if (runway === '30R') {
+          updatedPlane = VOREngine.initializeVOR_30R(plane, entryPoint);
+        } else {
+          // VOR 12R - use existing initialization
+          updatedPlane = VOREngine.initializeVOR(plane, entryPoint);
+        }
         console.log('Updated plane state:', {
           navigationMode: updatedPlane.navigationMode,
           vorApproach: updatedPlane.vorApproach
