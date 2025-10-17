@@ -11,6 +11,8 @@ class FormationEngine {
 
   /**
    * Update formation member to follow leader in trail formation
+   * Trail members simply match the leader's heading, speed, and altitude
+   * They follow naturally without aggressive navigation to specific positions
    * @param {Object} aircraft - The trail member aircraft
    * @param {Object} leader - The formation leader aircraft
    * @param {number} deltaTime - Time delta in seconds
@@ -20,42 +22,38 @@ class FormationEngine {
   static updateFormationTrail(aircraft, leader, deltaTime, performance) {
     let updatedAircraft = { ...aircraft };
 
-    // Calculate target position: behind leader by separation distance × formation position
-    const separation = FormationEngine.TRAIL_SEPARATION_NM * aircraft.formationPosition;
+    // Copy the leader's exact heading (no smooth turning needed)
+    updatedAircraft.heading = leader.heading;
 
-    // Bearing opposite to leader's heading (trail behind)
-    const trailBearing = (leader.heading + 180) % 360;
-
-    // Calculate target position behind leader
-    const targetPosition = CoordinateUtils.radialDistanceToLatLon(
-      leader.position.lat,
-      leader.position.lon,
-      trailBearing,
-      separation
-    );
-
-    // Calculate bearing from current position to target position
-    const bearingToTarget = GeometryUtils.calculateBearing(
-      aircraft.position.lat,
-      aircraft.position.lon,
-      targetPosition.lat,
-      targetPosition.lon
-    );
-
-    // Turn toward target position
-    updatedAircraft.heading = FormationEngine.turnTowardsHeading(
-      aircraft.heading,
-      bearingToTarget,
-      performance.turnRate,
-      deltaTime
-    );
-
-    // Match leader's altitude and speed (copy assignments, not actual values for smooth following)
+    // Copy leader's speed and altitude (actual values, not assignments)
+    updatedAircraft.speed = leader.speed;
+    updatedAircraft.altitude = leader.altitude;
     updatedAircraft.assignedAltitude = leader.assignedAltitude;
     updatedAircraft.assignedSpeed = leader.assignedSpeed;
 
     // Copy leader's state
     updatedAircraft.state = leader.state;
+
+    // Copy leader's navigation mode and commands so trail follows same procedures
+    updatedAircraft.navigationMode = leader.navigationMode;
+    updatedAircraft.assignedHeading = leader.assignedHeading;
+    updatedAircraft.assignedSID = leader.assignedSID;
+    updatedAircraft.sidWaypointIndex = leader.sidWaypointIndex;
+    updatedAircraft.sidComplete = leader.sidComplete;
+    updatedAircraft.assignedRoute = leader.assignedRoute;
+    updatedAircraft.routeWaypointIndex = leader.routeWaypointIndex;
+
+    // Calculate trail position: behind leader by (formationPosition × separation distance)
+    // This ensures natural spacing without aggressive maneuvering
+    const separation = FormationEngine.TRAIL_SEPARATION_NM * aircraft.formationPosition;
+    const trailBearing = (leader.heading + 180) % 360; // Opposite of leader's heading
+
+    updatedAircraft.position = CoordinateUtils.radialDistanceToLatLon(
+      leader.position.lat,
+      leader.position.lon,
+      trailBearing,
+      separation
+    );
 
     return updatedAircraft;
   }

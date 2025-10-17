@@ -406,21 +406,9 @@ const ZaragozaTMASimulator = () => {
     const departureThreshold = departureThresholdMap[spawnData.runway];
 
     for (let i = 0; i < spawnData.formationSize; i++) {
-      // Calculate position offset for formation spacing (200m = ~0.108 NM behind)
-      const spacingNM = i * 0.108;
-      const bearing = (runwayData.heading + 180) % 360; // Opposite direction for spacing
-
-      let position;
-      if (i === 0) {
-        position = { ...departureThreshold };
-      } else {
-        position = CoordinateUtils.radialDistanceToLatLon(
-          departureThreshold.lat,
-          departureThreshold.lon,
-          bearing,
-          spacingNM
-        );
-      }
+      // All formation aircraft spawn at the same position (stacked)
+      // Formation separation will be applied naturally once takeoff begins
+      const position = { ...departureThreshold };
 
       formation.push({
         id: nextAircraftId + i,
@@ -500,7 +488,7 @@ const ZaragozaTMASimulator = () => {
     const formation = [];
 
     for (let i = 0; i < spawnData.formationSize; i++) {
-      const spacingNM = i * 0.108; // Same as runway spacing
+      const spacingNM = i * 0.5; // Match in-flight trail separation
       let position;
 
       if (i === 0) {
@@ -668,26 +656,46 @@ const ZaragozaTMASimulator = () => {
   };
 
   const handleTakeoffCommand = (aircraftId) => {
-    setAircraft(prev => prev.map(plane => {
-      if (plane.id === aircraftId && plane.state === AIRCRAFT_STATES.PARKED) {
-        // Determine target altitude
-        let targetAltitude;
-        if (plane.assignedSID) {
-          // Use altitude cap if set, otherwise use SID's default (FL240)
-          targetAltitude = plane.sidAltitudeCap || 24000;
-        } else {
-          // No SID, use standard 5000 ft
-          targetAltitude = 5000;
-        }
-
-        return {
-          ...plane,
-          state: AIRCRAFT_STATES.TAKEOFF_ROLL,
-          assignedAltitude: targetAltitude
-        };
+    setAircraft(prev => {
+      // Find the aircraft receiving the takeoff command
+      const commandedAircraft = prev.find(p => p.id === aircraftId);
+      if (!commandedAircraft || commandedAircraft.state !== AIRCRAFT_STATES.PARKED) {
+        return prev;
       }
-      return plane;
-    }));
+
+      // Determine if this aircraft is a formation leader
+      const isFormationLeader = commandedAircraft.formationLeader && commandedAircraft.isFormationMember;
+      const formationLeaderId = isFormationLeader ? aircraftId : null;
+
+      return prev.map(plane => {
+        // Apply to the commanded aircraft OR to trail members of the commanded leader
+        const shouldTakeoff = (plane.id === aircraftId) ||
+                              (isFormationLeader &&
+                               plane.isFormationMember &&
+                               !plane.formationLeader &&
+                               plane.formationLeaderId === formationLeaderId &&
+                               plane.state === AIRCRAFT_STATES.PARKED);
+
+        if (shouldTakeoff) {
+          // Determine target altitude
+          let targetAltitude;
+          if (plane.assignedSID) {
+            // Use altitude cap if set, otherwise use SID's default (FL240)
+            targetAltitude = plane.sidAltitudeCap || 24000;
+          } else {
+            // No SID, use standard 5000 ft
+            targetAltitude = 5000;
+          }
+
+          return {
+            ...plane,
+            state: AIRCRAFT_STATES.TAKEOFF_ROLL,
+            assignedAltitude: targetAltitude
+          };
+        }
+        return plane;
+      });
+    });
   };
 
   const handleAssignSID = (aircraftId, sidDesignator, altitudeCap) => {
@@ -1052,8 +1060,21 @@ const ZaragozaTMASimulator = () => {
           MovementEngine.updateAircraft(plane, adjustedDeltaTime, activeDelta, prev)
         );
 
+        // Find formation leaders that have landed
+        const landedLeaderIds = updatedAircraft
+          .filter(plane => plane.landed && plane.formationLeader && plane.isFormationMember)
+          .map(plane => plane.formationLeaderId);
+
         // Remove aircraft that have landed or should be deleted (visual approach)
-        return updatedAircraft.filter(plane => !plane.landed && !plane.shouldDelete);
+        // Also remove all formation members if their leader has landed
+        return updatedAircraft.filter(plane => {
+          if (plane.landed || plane.shouldDelete) return false;
+          if (plane.isFormationMember && !plane.formationLeader && landedLeaderIds.includes(plane.formationLeaderId)) {
+            console.log(`${plane.callsign}: Removed because formation leader has landed`);
+            return false;
+          }
+          return true;
+        });
       });
 
       animationFrameId = requestAnimationFrame(gameLoop);

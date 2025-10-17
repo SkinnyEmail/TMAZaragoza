@@ -111,8 +111,8 @@ const VISUAL_PATTERNS = {
     runwayHeading: 300,
 
     // Waypoints from ARP using exact radial/distance specifications
-    downwindWaypoint: CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, 276, 3.1),
-    baseWaypoint: CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, 194, 1.9),
+    downwindWaypoint: CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, 262, 3.3),
+    baseWaypoint: CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, 176, 2.0),
     finalWaypoint: CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, 135, 0.7),
 
     // Speed profile (progressive deceleration)

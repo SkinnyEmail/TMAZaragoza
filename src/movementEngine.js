@@ -18,15 +18,18 @@ class MovementEngine {
 
     // FORMATION TRAIL LOGIC - Priority override for trail members
     // Trail members follow their leader instead of executing independent commands
+    // Only apply when aircraft are actually moving (not PARKED)
     if (updatedAircraft.isFormationMember &&
         !updatedAircraft.formationLeader &&
-        !updatedAircraft.isSplit) {
+        !updatedAircraft.isSplit &&
+        updatedAircraft.state !== AIRCRAFT_STATES.PARKED) {
 
       // Find the formation leader
       const leader = allAircraft.find(p => p.id === updatedAircraft.formationLeaderId);
 
       if (leader) {
         // Follow leader in trail formation
+        // This handles ALL updates: position, heading, speed, altitude, state
         updatedAircraft = FormationEngine.updateFormationTrail(
           updatedAircraft,
           leader,
@@ -34,8 +37,9 @@ class MovementEngine {
           performance
         );
 
-        // Continue to altitude/speed/position updates below
-        // But skip all other navigation logic
+        // Return immediately - trail members don't run the state machine
+        // They get everything from the leader via FormationEngine
+        return updatedAircraft;
       }
     }
     // Only execute independent navigation if NOT in trail formation (or if split)

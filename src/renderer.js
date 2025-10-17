@@ -389,7 +389,19 @@ const CanvasRenderer = {
   },
 
   drawAircraft: (ctx, width, height, scale, offsetX, offsetY, aircraft, selectedAircraft, blinkingAircraftId, blinkState) => {
-    aircraft.forEach(plane => {
+    // Sort aircraft so formation trail members render below leaders
+    // Non-formation aircraft and formation leaders render on top
+    const sortedAircraft = [...aircraft].sort((a, b) => {
+      // Trail members (not leaders) render first (below)
+      const aIsTrailMember = a.isFormationMember && !a.formationLeader;
+      const bIsTrailMember = b.isFormationMember && !b.formationLeader;
+
+      if (aIsTrailMember && !bIsTrailMember) return -1; // a renders first
+      if (!aIsTrailMember && bIsTrailMember) return 1;  // b renders first
+      return 0; // Keep original order for same priority
+    });
+
+    sortedAircraft.forEach(plane => {
       const canvasPos = CoordinateUtils.latLonToCanvas(
         plane.position.lat,
         plane.position.lon,

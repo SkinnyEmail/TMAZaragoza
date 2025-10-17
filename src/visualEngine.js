@@ -118,14 +118,9 @@ const VisualEngine = {
 
     // Speed and altitude management
     if (updatedAircraft.visualApproach.hasEnteredATZ || isInATZ) {
-      // Only assign 150kt if aircraft is faster - don't accelerate slower aircraft
-      if (updatedAircraft.speed > pattern.speeds.atzEntry) {
-        updatedAircraft.assignedSpeed = pattern.speeds.atzEntry;
-      }
+      // Set target speeds - MovementEngine will handle smooth deceleration
+      updatedAircraft.assignedSpeed = pattern.speeds.downwind;
       updatedAircraft.assignedAltitude = pattern.altitudes.atzEntry;
-
-      // Progressive deceleration
-      updatedAircraft = VisualEngine.applyDeceleration(updatedAircraft, pattern.speeds.downwind, pattern.decelerationRate, deltaTime);
     }
 
     // Within 0.4 NM of waypoint - transition to base
@@ -158,53 +153,51 @@ const VisualEngine = {
     // Turn toward waypoint
     let updatedAircraft = VisualEngine.turnTowardsBearing(aircraft, bearingToWaypoint, performance.turnRate, deltaTime);
 
-    // Target base speed and altitude
+    // Target base speed and altitude - MovementEngine will handle smooth transitions
     updatedAircraft.assignedSpeed = pattern.speeds.base;
     updatedAircraft.assignedAltitude = pattern.altitudes.base;
 
-    // Progressive deceleration
-    updatedAircraft = VisualEngine.applyDeceleration(updatedAircraft, pattern.speeds.base, pattern.decelerationRate, deltaTime);
-
-    // Within 0.4 NM of waypoint - transition to final
+    // Within 0.4 NM of waypoint - skip TO_FINAL and go directly to FINAL_APPROACH (threshold)
     if (distanceToWaypoint < 0.4) {
-      console.log(`${aircraft.callsign}: Base waypoint reached, proceeding to final`);
-      updatedAircraft.visualApproach.phase = 'TO_FINAL';
+      console.log(`${aircraft.callsign}: Base waypoint reached, proceeding direct to final approach`);
+      updatedAircraft.visualApproach.phase = 'FINAL_APPROACH';
     }
 
     return updatedAircraft;
   },
 
   /**
-   * Phase 3: Navigate to final waypoint
+   * Phase 3: Navigate directly to runway threshold (final waypoint bypassed)
    */
   updateToFinalPhase: (aircraft, deltaTime, performance) => {
     const pattern = aircraft.visualApproach.pattern;
-    const finalWaypoint = pattern.finalWaypoint;
+    const threshold = RUNWAY_DATA[pattern.runway].threshold;
 
-    // Calculate distance and bearing to final waypoint
-    const distanceToWaypoint = VisualEngine.calculateDistance(
+    // Calculate distance and bearing to runway threshold
+    const distanceToThreshold = VisualEngine.calculateDistance(
       aircraft.position.lat, aircraft.position.lon,
-      finalWaypoint.lat, finalWaypoint.lon
+      threshold.lat, threshold.lon
     );
 
-    const bearingToWaypoint = VisualEngine.calculateBearing(
+    const bearingToThreshold = VisualEngine.calculateBearing(
       aircraft.position.lat, aircraft.position.lon,
-      finalWaypoint.lat, finalWaypoint.lon
+      threshold.lat, threshold.lon
     );
 
-    // Turn toward waypoint
-    let updatedAircraft = VisualEngine.turnTowardsBearing(aircraft, bearingToWaypoint, performance.turnRate, deltaTime);
+    // Turn toward threshold
+    let updatedAircraft = VisualEngine.turnTowardsBearing(aircraft, bearingToThreshold, performance.turnRate, deltaTime);
 
-    // Target final speed and altitude
-    updatedAircraft.assignedSpeed = pattern.speeds.final;
+    // Target final approach speed and altitude
+    updatedAircraft.assignedSpeed = pattern.speeds.finalApproach;
     updatedAircraft.assignedAltitude = pattern.altitudes.final;
 
-    // Progressive deceleration
-    updatedAircraft = VisualEngine.applyDeceleration(updatedAircraft, pattern.speeds.final, pattern.decelerationRate, deltaTime);
+    // Calculate glideslope altitude
+    const glideslopeAltitude = Math.max(distanceToThreshold * pattern.descentRate, 0);
+    updatedAircraft.assignedAltitude = glideslopeAltitude;
 
-    // Within 0.5 NM of waypoint - transition to final approach
-    if (distanceToWaypoint < 0.5) {
-      console.log(`${aircraft.callsign}: Final waypoint reached, established on final approach`);
+    // Within 1.0 NM of threshold - transition to final approach phase
+    if (distanceToThreshold < 1.0) {
+      console.log(`${aircraft.callsign}: Established on final approach to runway ${pattern.runway}`);
       updatedAircraft.visualApproach.phase = 'FINAL_APPROACH';
     }
 
@@ -237,9 +230,6 @@ const VisualEngine = {
     updatedAircraft.assignedAltitude = glideslopeAltitude;
     updatedAircraft.assignedSpeed = pattern.speeds.finalApproach;
     updatedAircraft.state = AIRCRAFT_STATES.APPROACH;
-
-    // Progressive deceleration
-    updatedAircraft = VisualEngine.applyDeceleration(updatedAircraft, pattern.speeds.finalApproach, pattern.decelerationRate, deltaTime);
 
     // Below transition altitude - switch to landing
     if (updatedAircraft.altitude < VISUAL_LANDING.transitionAltitude) {
@@ -280,12 +270,11 @@ const VisualEngine = {
       }
 
       updatedAircraft.visualApproach.landingElapsedTime += deltaTime;
-      const decelerationAmount = VISUAL_LANDING.decelerationRate * deltaTime;
-      updatedAircraft.speed = Math.max(0, updatedAircraft.speed - decelerationAmount);
       updatedAircraft.assignedSpeed = 0;
 
       // Mark as landed and schedule deletion after 7 seconds
-      if (updatedAircraft.speed === 0) {
+      // Check speed <= 1 to account for floating point precision
+      if (updatedAircraft.speed <= 1) {
         updatedAircraft.state = AIRCRAFT_STATES.PARKED;
 
         // Track when aircraft stopped
@@ -305,21 +294,6 @@ const VisualEngine = {
     } else {
       // Still in air - slow to touchdown speed
       updatedAircraft.assignedSpeed = VISUAL_LANDING.touchdownSpeed;
-    }
-
-    return updatedAircraft;
-  },
-
-  /**
-   * Apply progressive deceleration
-   */
-  applyDeceleration: (aircraft, targetSpeed, decelerationRate, deltaTime) => {
-    const updatedAircraft = { ...aircraft };
-
-    if (updatedAircraft.speed > targetSpeed) {
-      // Gradually reduce speed
-      const speedReduction = decelerationRate * deltaTime;
-      updatedAircraft.speed = Math.max(targetSpeed, updatedAircraft.speed - speedReduction);
     }
 
     return updatedAircraft;
