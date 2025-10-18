@@ -85,6 +85,7 @@ const ZaragozaTMASimulator = () => {
   const [simulationTime, setSimulationTime] = useState(0);
   const [scheduledSpawns, setScheduledSpawns] = useState([]);
   const [isPaused, setIsPaused] = useState(false);
+  const [metar, setMetar] = useState('Loading METAR...');
 
   const BASE_SCALE = 3;
 
@@ -1028,6 +1029,37 @@ const ZaragozaTMASimulator = () => {
     };
   }, []);
 
+  // METAR auto-update (fetch every 10 minutes)
+  useEffect(() => {
+    const fetchMetar = async () => {
+      try {
+        // Use CheckWX API (free tier with API key)
+        const response = await fetch('https://api.checkwx.com/metar/LEZG/decoded', {
+          headers: {
+            'X-API-Key': '115b3f3bc2994f15b73ca3a0bfc059fa'
+          }
+        });
+        const data = await response.json();
+        if (data && data.data && data.data.length > 0 && data.data[0].raw_text) {
+          setMetar(data.data[0].raw_text);
+        } else {
+          setMetar('METAR unavailable');
+        }
+      } catch (error) {
+        console.error('Error fetching METAR:', error);
+        setMetar('METAR fetch failed');
+      }
+    };
+
+    // Fetch immediately on mount
+    fetchMetar();
+
+    // Then fetch every 10 minutes
+    const interval = setInterval(fetchMetar, 10 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Blink effect for aircraft being deleted
   useEffect(() => {
     if (!blinkingAircraftId) return;
@@ -1298,6 +1330,13 @@ const ZaragozaTMASimulator = () => {
             onSelectAircraft={setSelectedAircraft}
             simulationTime={simulationTime}
           />
+        </div>
+
+        {/* METAR Display */}
+        <div className="absolute top-4 right-4 z-10">
+          <div className="bg-gray-900 bg-opacity-40 backdrop-blur-sm border border-gray-700 border-opacity-30 rounded px-3 py-1.5 font-mono text-xs text-gray-400">
+            {metar}
+          </div>
         </div>
 
         {showSpawnPanel && (
