@@ -1053,15 +1053,11 @@ const ZaragozaTMASimulator = () => {
   useEffect(() => {
     const fetchMetar = async () => {
       try {
-        // Use CheckWX API (free tier with API key)
-        const response = await fetch('https://api.checkwx.com/metar/LEZG/decoded', {
-          headers: {
-            'X-API-Key': '115b3f3bc2994f15b73ca3a0bfc059fa'
-          }
-        });
+        // Use AVWX.rest API (free tier, no auth required)
+        const response = await fetch('https://avwx.rest/api/metar/LEZG');
         const data = await response.json();
-        if (data && data.data && data.data.length > 0 && data.data[0].raw_text) {
-          setMetar(data.data[0].raw_text);
+        if (data && data.raw) {
+          setMetar(data.raw);
         } else {
           setMetar('METAR unavailable');
         }
