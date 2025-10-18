@@ -34,6 +34,7 @@ const ControlPanel = ({
   onOpenILSPanel,
   onOpenVORPanel,
   onOpenVisualPanel,
+  onOpenHITACPanel,
   onOpenHoldingPanel,
   onOpenOrbitPanel,
   onOpenScenarioPanel,
@@ -807,6 +808,33 @@ const ControlPanel = ({
                     {((!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.assignedAltitude <= 10000)) || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
                       <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
                         {!selectedAircraft ? 'No plane selected. Please select a plane first.' : isTrailMember(aircraft.find(p => p.id === selectedAircraft)) ? 'Trail formation members cannot execute commands. Use Split first.' : 'The plane needs to be cleared to FL100 or lower'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* HI-TAC Approach Button (Military Only) */}
+                  <div className="relative group">
+                    <button
+                      onClick={() => {
+                        const plane = aircraft.find(p => p.id === selectedAircraft);
+                        if (plane && plane.type === 'Military' && !isTrailMember(plane)) {
+                          onOpenHITACPanel();
+                          setArrivalsSubmenuOpen(false);
+                          setCommandsMenuOpen(false);
+                        }
+                      }}
+                      disabled={!selectedAircraft || isTrailMember(aircraft.find(p => p.id === selectedAircraft)) || !aircraft.find(p => p.id === selectedAircraft && p.type === 'Military')}
+                      className={`w-full px-4 py-2 text-left font-mono text-sm ${
+                        selectedAircraft && !isTrailMember(aircraft.find(p => p.id === selectedAircraft)) && aircraft.find(p => p.id === selectedAircraft && p.type === 'Military')
+                          ? 'text-orange-400 hover:bg-gray-600 cursor-pointer'
+                          : 'text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      HI-TAC
+                    </button>
+                    {((!selectedAircraft || !aircraft.find(p => p.id === selectedAircraft && p.type === 'Military')) || isTrailMember(aircraft.find(p => p.id === selectedAircraft))) && (
+                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block bg-gray-900 text-white text-xs font-mono px-3 py-2 rounded shadow-lg border border-gray-600 whitespace-nowrap z-50">
+                        {!selectedAircraft ? 'No plane selected. Please select a plane first.' : isTrailMember(aircraft.find(p => p.id === selectedAircraft)) ? 'Trail formation members cannot execute commands. Use Split first.' : 'Military aircraft only'}
                       </div>
                     )}
                   </div>

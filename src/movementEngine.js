@@ -5,6 +5,7 @@ import { SIDEngine } from './sidEngine';
 import { ILSEngine } from './ilsEngine';
 import { VOREngine } from './vorEngine';
 import { VisualEngine } from './visualEngine';
+import { HITACEngine } from './hitacEngine';
 import { HoldingEngine } from './holdingEngine';
 import { OrbitEngine } from './orbitEngine';
 import { getWaypointByName } from './waypointDatabase';
@@ -57,6 +58,9 @@ class MovementEngine {
     } else if (updatedAircraft.navigationMode === 'VISUAL_APPROACH' && updatedAircraft.visualApproach) {
       // Follow visual approach procedure
       updatedAircraft = VisualEngine.updateAircraftWithVisual(updatedAircraft, deltaTime);
+    } else if (updatedAircraft.navigationMode === 'HITAC_APPROACH' && updatedAircraft.hitacApproach) {
+      // Follow HI-TAC approach procedure (military only)
+      updatedAircraft = HITACEngine.updateAircraftWithHITAC(updatedAircraft, deltaTime);
     } else if (updatedAircraft.navigationMode === 'HOLDING' && updatedAircraft.holdingPattern) {
       // Follow holding pattern
       updatedAircraft = HoldingEngine.updateAircraftWithHolding(updatedAircraft, deltaTime);

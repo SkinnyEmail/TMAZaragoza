@@ -22,12 +22,14 @@ import OrbitPanel from './OrbitPanel';
 import ScenarioLoadPanel from './ScenarioLoadPanel';
 import VORAssignPanel from './VORAssignPanel';
 import VisualAssignPanel from './VisualAssignPanel';
+import HITACAssignPanel from './HITACAssignPanel';
 import AircraftListPanel from './AircraftListPanel';
 import ControlPanel from './ControlPanel';
 import { HoldingEngine } from './holdingEngine';
 import { OrbitEngine } from './orbitEngine';
 import { VOREngine } from './vorEngine';
 import { VisualEngine } from './visualEngine';
+import { HITACEngine } from './hitacEngine';
 
 const ZaragozaTMASimulator = () => {
   const canvasRef = useRef(null);
@@ -65,6 +67,7 @@ const ZaragozaTMASimulator = () => {
   const [showILSPanel, setShowILSPanel] = useState(false);
   const [showVORPanel, setShowVORPanel] = useState(false);
   const [showVisualPanel, setShowVisualPanel] = useState(false);
+  const [showHITACPanel, setShowHITACPanel] = useState(false);
   const [showHoldingPanel, setShowHoldingPanel] = useState(false);
   const [showOrbitPanel, setShowOrbitPanel] = useState(false);
   const [showScenarioPanel, setShowScenarioPanel] = useState(false);
@@ -847,6 +850,23 @@ const ZaragozaTMASimulator = () => {
     setShowVORPanel(false);
   };
 
+  const handleAssignHITAC = (aircraftId, entryPoint) => {
+    console.log(`Assigning HI-TAC 12R approach to aircraft ${aircraftId} entry: ${entryPoint}`);
+    setAircraft(prev => prev.map(plane => {
+      if (plane.id === aircraftId) {
+        const updatedPlane = HITACEngine.initializeHITAC(plane, entryPoint);
+        console.log('Updated plane state:', {
+          navigationMode: updatedPlane.navigationMode,
+          hitacApproach: updatedPlane.hitacApproach,
+          assignedAltitude: updatedPlane.assignedAltitude
+        });
+        return updatedPlane;
+      }
+      return plane;
+    }));
+    setShowHITACPanel(false);
+  };
+
   const handleAssignVisual = (aircraftId, runway, entryPoint) => {
     console.log(`Assigning Visual approach to aircraft ${aircraftId} runway ${runway} via ${entryPoint}`);
     setAircraft(prev => prev.map(plane => {
@@ -1439,6 +1459,15 @@ const ZaragozaTMASimulator = () => {
           />
         )}
 
+        {showHITACPanel && (
+          <HITACAssignPanel
+            selectedAircraft={selectedAircraft}
+            aircraft={aircraft}
+            onAssignHITAC={handleAssignHITAC}
+            onClose={() => setShowHITACPanel(false)}
+          />
+        )}
+
         {showVisualPanel && (
           <VisualAssignPanel
             selectedAircraft={selectedAircraft}
@@ -1514,6 +1543,7 @@ const ZaragozaTMASimulator = () => {
         onOpenILSPanel={() => setShowILSPanel(true)}
         onOpenVORPanel={() => setShowVORPanel(true)}
         onOpenVisualPanel={() => setShowVisualPanel(true)}
+        onOpenHITACPanel={() => setShowHITACPanel(true)}
         onOpenHoldingPanel={() => setShowHoldingPanel(true)}
         onOpenOrbitPanel={() => setShowOrbitPanel(true)}
         onOpenScenarioPanel={() => setShowScenarioPanel(true)}
