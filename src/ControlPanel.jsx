@@ -6,6 +6,7 @@ import { AIRCRAFT_STATES } from './aircraftStates';
 const ControlPanel = ({
   showATZ, setShowATZ,
   showCTR, setShowCTR,
+  showCorridor, setShowCorridor,
   showVisual, setShowVisual,
   showInstrumental, setShowInstrumental,
   showSIDsRunway30, setShowSIDsRunway30,
@@ -37,7 +38,9 @@ const ControlPanel = ({
   onOpenOrbitPanel,
   onOpenScenarioPanel,
   showHoldings,
-  setShowHoldings
+  setShowHoldings,
+  isPaused,
+  setIsPaused
 }) => {
   const [drawingsMenuOpen, setDrawingsMenuOpen] = useState(false);
   const [aerodromeSubmenuOpen, setAerodromeSubmenuOpen] = useState(false);
@@ -209,6 +212,15 @@ const ControlPanel = ({
                       {showCTR && <span className="text-white text-xs">✓</span>}
                     </div>
                     CTR
+                  </button>
+                  <button
+                    onClick={() => setShowCorridor(!showCorridor)}
+                    className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center gap-2 font-mono text-sm"
+                  >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${showCorridor ? 'bg-yellow-500 border-yellow-500' : 'border-gray-400'}`}>
+                      {showCorridor && <span className="text-white text-xs">✓</span>}
+                    </div>
+                    Corridor
                   </button>
                   <button
                     onClick={() => setShowVisual(!showVisual)}
@@ -875,6 +887,14 @@ const ControlPanel = ({
           <div
             className="absolute bottom-full left-0 mb-2 bg-gray-700 rounded shadow-lg border border-gray-600 min-w-[180px] z-50"
           >
+            <button
+              onClick={() => {
+                setIsPaused(!isPaused);
+              }}
+              className="w-full px-4 py-2 text-left font-mono text-sm text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600"
+            >
+              {isPaused ? 'Resume' : 'Pause'}
+            </button>
             <button
               onClick={() => {
                 setSystemMenuOpen(false);

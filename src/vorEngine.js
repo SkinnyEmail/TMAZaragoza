@@ -3,6 +3,7 @@ import { VOR_12R } from './vorData';
 import { VOR_30R } from './vorData_30R';
 import { AIRCRAFT_STATES } from './aircraftStates';
 import { AIRCRAFT_PERFORMANCE } from './aircraftPerformance';
+import { CoordinateUtils } from './utils';
 
 const VOREngine = {
   updateAircraftWithVOR: (aircraft, deltaTime) => {
@@ -142,9 +143,9 @@ const VOREngine = {
     updatedAircraft.assignedAltitude = 5000;
     updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].initial;
 
-    // Within 1 NM of VOR - transition to outbound
-    if (distanceToVOR < 1.0) {
-      console.log(`${aircraft.callsign}: Over ZAR VOR, proceeding outbound on R-108 to 16 DME`);
+    // Tight tolerance: within 0.5 NM of VOR - transition to outbound
+    if (distanceToVOR < 0.5) {
+      console.log(`${aircraft.callsign}: Over ZAR VOR, proceeding outbound on R-130`);
       updatedAircraft.vorApproach.phase = 'OUTBOUND_30R';
     }
 
@@ -152,11 +153,12 @@ const VOREngine = {
   },
 
   /**
-   * VOR 30R Phase: Outbound on R-108 to 16 DME (IF)
+   * VOR 30R Phase: Intercept and track outbound on R-130 to 16 DME
+   * Uses cross-track error to properly intercept the radial line
    */
   updateOutbound_30R_Phase: (aircraft, deltaTime, performance) => {
     const zarVOR = VOR_30R.iaf;
-    const outboundTrack = 108; // Radial 108° FROM ZAR
+    const targetRadial = 130; // Radial 130° FROM ZAR
 
     // Calculate current DME from ZAR VOR
     const currentDME = VOREngine.calculateDistance(
@@ -164,14 +166,54 @@ const VOREngine = {
       zarVOR.lat, zarVOR.lon
     );
 
-    // Turn to outbound track (fly heading 108° away from ZAR)
-    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, outboundTrack, performance.turnRate, deltaTime);
+    // Calculate current radial FROM ZAR (where aircraft is positioned)
+    const currentRadial = VOREngine.calculateBearing(
+      zarVOR.lat, zarVOR.lon,
+      aircraft.position.lat, aircraft.position.lon
+    );
+
+    // Calculate angular difference from target radial
+    let radialDiff = targetRadial - currentRadial;
+    if (radialDiff > 180) radialDiff -= 360;
+    if (radialDiff < -180) radialDiff += 360;
+
+    // Calculate cross-track error (perpendicular distance from R-130 line)
+    // This is the actual distance OFF the radial in nautical miles
+    const crossTrackError = currentDME * Math.sin(radialDiff * Math.PI / 180);
+
+    // Determine if ON radial (within 0.5 NM tolerance - relaxed)
+    const onRadial = Math.abs(crossTrackError) < 0.5;
+
+    let targetHeading;
+
+    if (!onRadial) {
+      // NOT on radial - intercept it
+      // Create waypoint ahead on R-130 to fly toward
+      const interceptDistance = currentDME + 5; // 5 NM ahead on R-130
+      const interceptPoint = CoordinateUtils.radialDistanceToLatLon(
+        zarVOR.lat, zarVOR.lon,
+        targetRadial,
+        interceptDistance
+      );
+
+      // Fly toward the intercept point (this gets us ONTO the radial)
+      targetHeading = VOREngine.calculateBearing(
+        aircraft.position.lat, aircraft.position.lon,
+        interceptPoint.lat, interceptPoint.lon
+      );
+    } else {
+      // ON radial - fly outbound heading to maintain it
+      targetHeading = targetRadial; // Heading 130°
+    }
+
+    // Turn toward target heading
+    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, targetHeading, performance.turnRate, deltaTime);
     updatedAircraft.assignedAltitude = 5000;
     updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].intermediate;
 
-    // Check if reached IF (16 DME)
-    if (currentDME >= VOR_30R.intermediatefix.dme) {
-      console.log(`${aircraft.callsign}: Reached IF at ${currentDME.toFixed(1)} DME, turning inbound on R-108`);
+    // Reached 16 DME - transition to inbound
+    if (currentDME >= 16.0) {
+      console.log(`${aircraft.callsign}: Reached IF at ${currentDME.toFixed(1)} DME, turning inbound`);
       updatedAircraft.vorApproach.phase = 'IF_TO_FAF_30R';
     }
 
@@ -432,10 +474,11 @@ const VOREngine = {
 
   /**
    * VOR 30R Phase 2: IF to FAF (16 DME to 6 DME on R-108 inbound)
+   * Relaxed - fly toward threshold, transition well before FAF
    */
   updateIFToFAF_30R_Phase: (aircraft, deltaTime, performance) => {
     const zarVOR = VOR_30R.iaf;
-    const fafPosition = VOR_30R.faf;
+    const threshold = RUNWAY_DATA['30R'].threshold;
 
     // Calculate current DME from ZAR VOR
     const currentDME = VOREngine.calculateDistance(
@@ -443,21 +486,19 @@ const VOREngine = {
       zarVOR.lat, zarVOR.lon
     );
 
-    // Calculate bearing TO ZAR (should be ~288° to track R-108 inbound)
-    const bearingToZAR = VOREngine.calculateBearing(
+    // Fly toward threshold (more forgiving than precise radial tracking)
+    const bearingToThreshold = VOREngine.calculateBearing(
       aircraft.position.lat, aircraft.position.lon,
-      zarVOR.lat, zarVOR.lon
+      threshold.lat, threshold.lon
     );
 
-    // Turn to track inbound on R-108 (heading ~288° TO ZAR)
-    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, bearingToZAR, performance.turnRate, deltaTime);
+    let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, bearingToThreshold, performance.turnRate, deltaTime);
     updatedAircraft.assignedAltitude = 5000;
     updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].intermediate;
 
-    // Within 0.5 NM of FAF (6.0 DME) - transition to final approach
-    const distanceToFAF = Math.abs(currentDME - 6.0);
-    if (distanceToFAF < 0.5 || currentDME <= 6.0) {
-      console.log(`${aircraft.callsign}: Reached FAF at ${currentDME.toFixed(1)} DME, beginning final descent`);
+    // Transition to final at 5.5 DME (ensures we're past FAF before descending)
+    if (currentDME <= 5.5) {
+      console.log(`${aircraft.callsign}: Passing FAF at ${currentDME.toFixed(1)} DME, beginning final descent`);
       updatedAircraft.vorApproach.phase = 'FINAL_APPROACH_30R';
       updatedAircraft.state = AIRCRAFT_STATES.APPROACH;
     }
@@ -466,17 +507,11 @@ const VOREngine = {
   },
 
   /**
-   * VOR 30R Phase 3: Final Approach (FAF to threshold with DME-based descent)
+   * VOR 30R Phase 3: Final Approach (FAF to threshold with distance-based descent)
+   * Simplified - use distance to threshold for smooth glideslope
    */
   updateFinalApproach_30R_Phase: (aircraft, deltaTime, performance) => {
-    const zarVOR = VOR_30R.iaf;
     const threshold = RUNWAY_DATA['30R'].threshold;
-
-    // Calculate current DME from ZAR
-    const currentDME = VOREngine.calculateDistance(
-      aircraft.position.lat, aircraft.position.lon,
-      zarVOR.lat, zarVOR.lon
-    );
 
     // Calculate distance to threshold
     const distanceToThreshold = VOREngine.calculateDistance(
@@ -492,18 +527,16 @@ const VOREngine = {
 
     let updatedAircraft = VOREngine.turnTowardsBearing(aircraft, bearingToThreshold, performance.turnRate, deltaTime);
 
-    // Calculate target altitude using DME-based descent profile
-    // At FAF (6.0 DME): 2400 ft
-    // Descend at 318 ft/NM
-    const distanceFromFAF = 6.0 - currentDME;
-    const targetAltitude = Math.max(834, 2400 - (distanceFromFAF * VOR_30R.descentRate));
+    // Simple distance-based glideslope (like VOR 12R below MAPT)
+    // 318 ft/NM descent rate, minimum 834 ft (threshold elevation)
+    const targetAltitude = Math.max(834, distanceToThreshold * VOR_30R.descentRate);
 
     updatedAircraft.assignedAltitude = targetAltitude;
     updatedAircraft.assignedSpeed = VOR_30R.speeds[aircraft.type].final;
     updatedAircraft.state = AIRCRAFT_STATES.APPROACH;
 
-    // Below transition altitude - switch to landing
-    if (updatedAircraft.altitude < VOR_30R.landing.transitionAltitude) {
+    // Relaxed landing transition: 1000 ft instead of 500 ft
+    if (updatedAircraft.altitude < 1000) {
       console.log(`${aircraft.callsign}: Entering landing phase at ${Math.round(updatedAircraft.altitude)} ft`);
       updatedAircraft.vorApproach.phase = 'LANDING_30R';
       updatedAircraft.vorApproach.landingElapsedTime = 0;

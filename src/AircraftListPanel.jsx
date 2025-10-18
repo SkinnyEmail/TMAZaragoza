@@ -31,14 +31,15 @@ const AircraftListPanel = ({ aircraft, selectedAircraft, onSelectAircraft, simul
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  // Calculate dynamic height - show max 4 rows before scrolling
-  const maxVisibleRows = 4;
-  const rowHeight = 29; // approximate px per row (py-1.5 padding + text)
+  // Calculate dynamic height - show max 3 rows before scrolling
+  const maxVisibleRows = 3;
+  const rowHeight = 38; // accurate px per row (py-1.5 padding + text + spacing)
+  const headerHeight = 33; // height of sticky thead row
 
   const shouldScroll = aircraft.length > maxVisibleRows;
   const scrollContainerHeight = shouldScroll
-    ? maxVisibleRows * rowHeight
-    : aircraft.length * rowHeight || 116; // 116px for "No aircraft" message
+    ? (maxVisibleRows * rowHeight) + headerHeight
+    : (aircraft.length * rowHeight) + headerHeight || 116; // 116px for "No aircraft" message
 
   return (
     <div className="bg-gray-800 bg-opacity-80 border border-gray-600 rounded shadow-lg" style={{ width: '420px' }}>
@@ -49,7 +50,7 @@ const AircraftListPanel = ({ aircraft, selectedAircraft, onSelectAircraft, simul
       </div>
 
       {/* Scrollable table container */}
-      <div className="overflow-y-auto" style={{ maxHeight: `${scrollContainerHeight}px` }}>
+      <div className={shouldScroll ? "overflow-y-auto" : "overflow-y-hidden"} style={{ maxHeight: `${scrollContainerHeight}px` }}>
         <table className="w-full font-mono text-xs">
           <thead className="bg-gray-700 sticky top-0">
             <tr className="text-gray-400 text-left">

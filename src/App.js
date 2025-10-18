@@ -34,6 +34,7 @@ const ZaragozaTMASimulator = () => {
   const containerRef = useRef(null);
   const [showATZ, setShowATZ] = useState(true);
   const [showCTR, setShowCTR] = useState(true);
+  const [showCorridor, setShowCorridor] = useState(false);
   const [showVisual, setShowVisual] = useState(false);
   const [showInstrumental, setShowInstrumental] = useState(false);
   const [showSIDsRunway30, setShowSIDsRunway30] = useState(false);
@@ -67,7 +68,7 @@ const ZaragozaTMASimulator = () => {
   const [showHoldingPanel, setShowHoldingPanel] = useState(false);
   const [showOrbitPanel, setShowOrbitPanel] = useState(false);
   const [showScenarioPanel, setShowScenarioPanel] = useState(false);
-  const [showHoldings, setShowHoldings] = useState(true);
+  const [showHoldings, setShowHoldings] = useState(false);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -83,6 +84,7 @@ const ZaragozaTMASimulator = () => {
   const [nextMeasurementId, setNextMeasurementId] = useState(1);
   const [simulationTime, setSimulationTime] = useState(0);
   const [scheduledSpawns, setScheduledSpawns] = useState([]);
+  const [isPaused, setIsPaused] = useState(false);
 
   const BASE_SCALE = 3;
 
@@ -1011,6 +1013,21 @@ const ZaragozaTMASimulator = () => {
     };
   }, []);
 
+  // Page refresh warning
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Refreshing the page will make you lose the current simulation scenario';
+      return 'Refreshing the page will make you lose the current simulation scenario';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   // Blink effect for aircraft being deleted
   useEffect(() => {
     if (!blinkingAircraftId) return;
@@ -1030,7 +1047,7 @@ const ZaragozaTMASimulator = () => {
     const gameLoop = () => {
       const now = Date.now();
       const deltaTime = (now - lastTime) / 1000; // Convert to seconds
-      const adjustedDeltaTime = deltaTime * simulationSpeed; // Apply simulation speed multiplier
+      const adjustedDeltaTime = isPaused ? 0 : deltaTime * simulationSpeed; // Pause simulation when isPaused
       lastTime = now;
 
       // Update simulation time
@@ -1093,7 +1110,7 @@ const ZaragozaTMASimulator = () => {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [simulationSpeed, simulationTime, scheduledSpawns, activeDelta, handleScheduledAirborneSpawn]);
+  }, [isPaused, simulationSpeed, simulationTime, scheduledSpawns, activeDelta, handleScheduledAirborneSpawn]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1158,6 +1175,7 @@ const ZaragozaTMASimulator = () => {
 
     if (showATZ) CanvasRenderer.drawATZ(ctx, centerX, centerY, scale);
     if (showCTR) CanvasRenderer.drawCTR(ctx, width, height, centerX, centerY, scale, panOffset.x, panOffset.y);
+    if (showCorridor) CanvasRenderer.drawCorridor(ctx, width, height, scale, panOffset.x, panOffset.y);
 
     CanvasRenderer.drawRunways(ctx, width, height, scale, panOffset.x, panOffset.y, zoom);
     CanvasRenderer.drawARP(ctx, centerX, centerY);
@@ -1252,7 +1270,7 @@ const ZaragozaTMASimulator = () => {
       );
     }
 
-  }, [showATZ, showCTR, showVisual, showInstrumental, showSIDsRunway30, showSIDsRunway12, showMilitaryDepartures, showHoldings, activeDelta, zoom, panOffset, aircraft, selectedAircraft, canvasDimensions, blinkingAircraftId, blinkState, isDrawingMode, drawingPoints, measurementActive, measurementOrigin, currentMousePos, anchoredMeasurements]);
+  }, [showATZ, showCTR, showCorridor, showVisual, showInstrumental, showSIDsRunway30, showSIDsRunway12, showMilitaryDepartures, showHoldings, activeDelta, zoom, panOffset, aircraft, selectedAircraft, canvasDimensions, blinkingAircraftId, blinkState, isDrawingMode, drawingPoints, measurementActive, measurementOrigin, currentMousePos, anchoredMeasurements]);
 
   return (
     <div className="w-full h-screen bg-gray-900 flex flex-col overflow-hidden">
@@ -1422,6 +1440,8 @@ const ZaragozaTMASimulator = () => {
         setShowATZ={setShowATZ}
         showCTR={showCTR}
         setShowCTR={setShowCTR}
+        showCorridor={showCorridor}
+        setShowCorridor={setShowCorridor}
         showVisual={showVisual}
         setShowVisual={setShowVisual}
         showInstrumental={showInstrumental}
@@ -1460,6 +1480,8 @@ const ZaragozaTMASimulator = () => {
         onOpenScenarioPanel={() => setShowScenarioPanel(true)}
         showHoldings={showHoldings}
         setShowHoldings={setShowHoldings}
+        isPaused={isPaused}
+        setIsPaused={setIsPaused}
       />
     </div>
   );

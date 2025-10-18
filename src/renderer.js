@@ -69,11 +69,11 @@ const CanvasRenderer = {
     ctx.strokeStyle = '#00aaff';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 3]);
-    
+
     ctx.beginPath();
     ctx.arc(centerX, centerY, 7 * scale, 0, 2 * Math.PI);
     ctx.stroke();
-    
+
     ctx.beginPath();
     CTR_RECTANGLE.forEach((point, index) => {
       const canvasPos = CoordinateUtils.latLonToCanvas(point.lat, point.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
@@ -86,10 +86,49 @@ const CanvasRenderer = {
     ctx.closePath();
     ctx.stroke();
     ctx.setLineDash([]);
-    
+
     ctx.fillStyle = '#00aaff';
     ctx.font = '11px monospace';
     ctx.fillText('CTR', centerX + 7 * scale - 30, centerY + 10);
+  },
+
+  drawCorridor: (ctx, width, height, scale, offsetX, offsetY) => {
+    // Corridor corner points (radial/distance from ARP)
+    // Reordered to form a proper rectangle: near-left, near-right, far-right, far-left
+    const corridorPoints = [
+      { radial: 188, distance: 36.5 }, // near-left
+      { radial: 173, distance: 34.9 }, // near-right
+      { radial: 176, distance: 56 },   // far-right
+      { radial: 184, distance: 59.3 }  // far-left
+    ];
+
+    // Convert to lat/lon and then to canvas coordinates
+    ctx.fillStyle = 'rgba(255, 221, 0, 0.3)'; // Semi-transparent yellow fill
+    ctx.strokeStyle = '#ffdd00'; // Eye-friendly yellow border
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    corridorPoints.forEach((point, index) => {
+      const latLon = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, point.radial, point.distance);
+      const canvasPos = CoordinateUtils.latLonToCanvas(latLon.lat, latLon.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
+      if (index === 0) {
+        ctx.moveTo(canvasPos.x, canvasPos.y);
+      } else {
+        ctx.lineTo(canvasPos.x, canvasPos.y);
+      }
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw label
+    ctx.fillStyle = '#ffdd00';
+    ctx.font = '11px monospace';
+    const firstPoint = corridorPoints[0];
+    const labelLatLon = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, firstPoint.radial, firstPoint.distance);
+    const labelCanvas = CoordinateUtils.latLonToCanvas(labelLatLon.lat, labelLatLon.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
+    ctx.fillText('Corridor', labelCanvas.x + 5, labelCanvas.y - 5);
   },
 
   drawDeltas: (ctx, width, height, scale, offsetX, offsetY, activeDelta) => {
