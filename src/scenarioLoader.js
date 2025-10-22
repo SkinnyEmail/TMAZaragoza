@@ -12,7 +12,8 @@ export const loadScenarioList = async () => {
     // Hardcoded list of scenarios (since we can't dynamically read directory in browser)
     const scenarios = [
       'Simple.json',
-      'Simple 2.json'
+      'Simple 2.json',
+      'Rush_Hour_Zaragoza.json'
     ];
     return scenarios;
   } catch (error) {

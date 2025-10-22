@@ -1053,17 +1053,48 @@ const ZaragozaTMASimulator = () => {
   useEffect(() => {
     const fetchMetar = async () => {
       try {
-        // Use AVWX.rest API (free tier, no auth required)
-        const response = await fetch('https://avwx.rest/api/metar/LEZG');
-        const data = await response.json();
-        if (data && data.raw) {
-          setMetar(data.raw);
+        // Try multiple sources in order
+        // 1. Try AviationWeather.gov new API (text format, no CORS)
+        try {
+          const response = await fetch('https://aviationweather.gov/api/data/metar?ids=LEZG&format=raw');
+          if (response.ok) {
+            const text = await response.text();
+            if (text && text.trim()) {
+              setMetar(text.trim());
+              return;
+            }
+          }
+        } catch (e) {
+          console.log('AviationWeather.gov failed, trying alternatives...');
+        }
+
+        // 2. Try AVWX (may require auth on free tier)
+        try {
+          const response = await fetch('https://avwx.rest/api/metar/LEZG');
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.raw) {
+              setMetar(data.raw);
+              return;
+            }
+          }
+        } catch (e) {
+          console.log('AVWX failed, trying alternatives...');
+        }
+
+        // 3. Fallback: Use a CORS proxy with AviationWeather
+        const proxyUrl = 'https://corsproxy.io/?';
+        const targetUrl = encodeURIComponent('https://aviationweather.gov/api/data/metar?ids=LEZG&format=raw');
+        const response = await fetch(proxyUrl + targetUrl);
+        const text = await response.text();
+        if (text && text.trim()) {
+          setMetar(text.trim());
         } else {
           setMetar('METAR unavailable');
         }
       } catch (error) {
         console.error('Error fetching METAR:', error);
-        setMetar('METAR fetch failed');
+        setMetar('METAR fetch failed - all sources unavailable');
       }
     };
 

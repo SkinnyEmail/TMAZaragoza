@@ -1,0 +1,61 @@
+{
+  "name": "Rush Hour Zaragoza",
+  "description": "20-minute ATC training scenario with collision conflicts, military departures, and complex traffic sequencing",
+  "briefing": "SCENARIO BRIEFING:\n\n6 arrivals inbound to LEZG with multiple conflicts requiring separation. You must:\n\n1. CONFLICT 1 (0-3min): IBE2341 & RYR84PQ at similar altitudes - separate immediately!\n2. CONFLICT 2 (5-8min): VLG447 & NATO01 converging - manage spacing for HI-TAC approach\n3. CONFLICT 3 (8-12min): EZY8923 may conflict with traffic pattern - vector as needed\n\nMILITARY OPERATIONS:\n- NATO01 & NATO02 require HI-TAC 12R approaches from Ambel/Surco\n- Remember to activate LED107 and LED70 deltas if needed for military operations\n\nRECOMMENDED ACTIONS:\n- Descend IBE2341 to FL100, hold RYR84PQ at FL170 initially\n- Assign ILS 30R to IBE2341, VOR 30R to RYR84PQ and VLG447\n- Assign HI-TAC 12R to NATO01 (full procedure) and NATO02 (straight-in)\n- Vector EZY8923 for spacing with VOR traffic\n- Monitor runway usage - coordinate 30R arrivals with possible 12R military traffic\n\nGOOD LUCK, CONTROLLER!",
+  "aircraft": [
+    {
+      "callsign": "IBE2341",
+      "type": "IFR",
+      "flightLevel": 150,
+      "waypoint": "KEKAG",
+      "timeToWaypoint": 6,
+      "spawnTime": 0,
+      "remarks": "First arrival - will conflict with RYR84PQ. Recommend descent to FL100 and ILS 30R approach."
+    },
+    {
+      "callsign": "RYR84PQ",
+      "type": "IFR",
+      "flightLevel": 170,
+      "waypoint": "YARZU",
+      "timeToWaypoint": 6,
+      "spawnTime": 30,
+      "remarks": "CONFLICT with IBE2341! Hold at FL170, then descend for VOR 30R when separated."
+    },
+    {
+      "callsign": "VLG447",
+      "type": "IFR",
+      "flightLevel": 140,
+      "waypoint": "Ponen",
+      "timeToWaypoint": 7,
+      "spawnTime": 120,
+      "remarks": "Inbound from south. Will converge with NATO01 later. Recommend VOR 30R approach."
+    },
+    {
+      "callsign": "NATO01",
+      "type": "Military",
+      "flightLevel": 200,
+      "waypoint": "Ambel",
+      "timeToWaypoint": 8,
+      "spawnTime": 180,
+      "remarks": "Military F-18. Assign HI-TAC 12R full procedure via Ambel. May conflict with VLG447 - manage spacing!"
+    },
+    {
+      "callsign": "EZY8923",
+      "type": "IFR",
+      "flightLevel": 160,
+      "waypoint": "Graus",
+      "timeToWaypoint": 8,
+      "spawnTime": 300,
+      "remarks": "Late arrival from northeast. Monitor for conflicts with established traffic pattern. ILS or VOR 30R."
+    },
+    {
+      "callsign": "NATO02",
+      "type": "Military",
+      "flightLevel": 200,
+      "waypoint": "Surco",
+      "timeToWaypoint": 8,
+      "spawnTime": 480,
+      "remarks": "Second military arrival. Assign HI-TAC 12R straight-in to IF. Ensure NATO01 has cleared runway!"
+    }
+  ]
+}
