@@ -1,5 +1,5 @@
 // ========== FILE: renderer.js ==========
-import { ARP, TMA_VERTICES, CTR_RECTANGLE, DELTAS, CIRCLE_DELTAS, VISUAL_POINTS, INSTRUMENTAL_POINTS, AIRCRAFT_TYPES, RUNWAY_DATA } from './constants';
+import { ARP, TMA_VERTICES, CTR_RECTANGLE, DELTAS, CIRCLE_DELTAS, VISUAL_POINTS, INSTRUMENTAL_POINTS, HUESCA_ZONE, AIRCRAFT_TYPES, RUNWAY_DATA } from './constants';
 import { CoordinateUtils } from './utils';
 import { GeometryUtils } from './geometryUtils';
 import { getSIDsForRunway } from './sidData';
@@ -52,15 +52,15 @@ const CanvasRenderer = {
   },
 
   drawATZ: (ctx, centerX, centerY, scale, zoom) => {
-    ctx.strokeStyle = '#00ff00';
+    ctx.strokeStyle = '#4ade80';  // Softer green (was #00ff00)
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
     ctx.arc(centerX, centerY, 4.32 * scale, 0, 2 * Math.PI);
     ctx.stroke();
     ctx.setLineDash([]);
-    
-    ctx.fillStyle = '#00ff00';
+
+    ctx.fillStyle = '#4ade80';  // Softer green (was #00ff00)
     ctx.font = `${11 * zoom}px monospace`;
     ctx.fillText('ATZ', centerX + 4.32 * scale - 30, centerY - 5);
   },
@@ -388,16 +388,16 @@ const CanvasRenderer = {
       const canvasPos = CoordinateUtils.latLonToCanvas(pos.lat, pos.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
       
       // Draw triangle pointing up
-      ctx.fillStyle = '#00ff00';
+      ctx.fillStyle = '#4ade80';  // Softer green (was #00ff00)
       ctx.beginPath();
       ctx.moveTo(canvasPos.x, canvasPos.y - 6);
       ctx.lineTo(canvasPos.x - 5, canvasPos.y + 4);
       ctx.lineTo(canvasPos.x + 5, canvasPos.y + 4);
       ctx.closePath();
       ctx.fill();
-      
+
       // Draw label
-      ctx.fillStyle = '#00ff00';
+      ctx.fillStyle = '#4ade80';  // Softer green (was #00ff00)
       ctx.font = 'bold 11px monospace';
       ctx.fillText(name, canvasPos.x + 8, canvasPos.y + 4);
     });
@@ -406,10 +406,20 @@ const CanvasRenderer = {
   drawInstrumentalPoints: (ctx, width, height, scale, offsetX, offsetY, showInstrumental) => {
     if (!showInstrumental) return;
 
+    // IAC points (Instrument Approach Charts) - excluded from this drawing
+    const iacPoints = ['IF_VOR30R', 'FAF_VOR30R', 'IF_ILS'];
+    // RWY30 entry points - excluded from this drawing
+    const rwy30Points = ['YARZU', 'KEKAG', 'GODPI'];
+    // Huesca points - excluded from this drawing (they have their own toggle)
+    const huescaPoints = ['W1_HUE', 'SW_HUE', 'S1_HUE', 'HUE_HUE', 'W_HUE', 'N_HUE', 'E_HUE', 'S_HUE'];
+
     Object.entries(INSTRUMENTAL_POINTS).forEach(([name, data]) => {
+      // Skip IAC, RWY30, and Huesca points - they have their own toggles
+      if (iacPoints.includes(name) || rwy30Points.includes(name) || huescaPoints.includes(name)) return;
+
       const pos = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, data.radial, data.distance);
       const canvasPos = CoordinateUtils.latLonToCanvas(pos.lat, pos.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
-      
+
       // Draw diamond shape
       ctx.fillStyle = '#00aaff';
       ctx.beginPath();
@@ -419,11 +429,182 @@ const CanvasRenderer = {
       ctx.lineTo(canvasPos.x - 5, canvasPos.y);
       ctx.closePath();
       ctx.fill();
-      
+
       // Draw label
       ctx.fillStyle = '#00aaff';
       ctx.font = 'bold 11px monospace';
       ctx.fillText(name, canvasPos.x + 8, canvasPos.y + 4);
+    });
+  },
+
+  drawIACPoints: (ctx, width, height, scale, offsetX, offsetY, showIAC) => {
+    if (!showIAC) return;
+
+    // IAC points (Instrument Approach Charts)
+    const iacPoints = ['IF_VOR30R', 'FAF_VOR30R', 'IF_ILS'];
+
+    Object.entries(INSTRUMENTAL_POINTS).forEach(([name, data]) => {
+      // Only draw IAC points
+      if (!iacPoints.includes(name)) return;
+
+      const pos = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, data.radial, data.distance);
+      const canvasPos = CoordinateUtils.latLonToCanvas(pos.lat, pos.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
+
+      // Draw diamond shape (cyan color for IAC)
+      ctx.fillStyle = '#00d4ff';
+      ctx.beginPath();
+      ctx.moveTo(canvasPos.x, canvasPos.y - 6);
+      ctx.lineTo(canvasPos.x + 5, canvasPos.y);
+      ctx.lineTo(canvasPos.x, canvasPos.y + 6);
+      ctx.lineTo(canvasPos.x - 5, canvasPos.y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw label
+      ctx.fillStyle = '#00d4ff';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(name, canvasPos.x + 8, canvasPos.y + 4);
+    });
+  },
+
+  drawRWY30Points: (ctx, width, height, scale, offsetX, offsetY, showRWY30) => {
+    if (!showRWY30) return;
+
+    // RWY30 entry points
+    const rwy30Points = ['YARZU', 'KEKAG', 'GODPI'];
+
+    // Draw entry points
+    Object.entries(INSTRUMENTAL_POINTS).forEach(([name, data]) => {
+      // Only draw RWY30 points
+      if (!rwy30Points.includes(name)) return;
+
+      const pos = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, data.radial, data.distance);
+      const canvasPos = CoordinateUtils.latLonToCanvas(pos.lat, pos.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
+
+      // Draw diamond shape (purple color for RWY30)
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.moveTo(canvasPos.x, canvasPos.y - 6);
+      ctx.lineTo(canvasPos.x + 5, canvasPos.y);
+      ctx.lineTo(canvasPos.x, canvasPos.y + 6);
+      ctx.lineTo(canvasPos.x - 5, canvasPos.y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw label
+      ctx.fillStyle = '#a855f7';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(name, canvasPos.x + 8, canvasPos.y + 4);
+    });
+
+    // Draw localizer line from Runway 30R threshold to KEKAG
+    const threshold30R = RUNWAY_DATA['30R'].threshold;
+    const kekagData = INSTRUMENTAL_POINTS['KEKAG'];
+
+    const thresholdPos = CoordinateUtils.latLonToCanvas(
+      threshold30R.lat, threshold30R.lon,
+      width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY
+    );
+
+    const kekagPos = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, kekagData.radial, kekagData.distance);
+    const kekagCanvasPos = CoordinateUtils.latLonToCanvas(
+      kekagPos.lat, kekagPos.lon,
+      width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY
+    );
+
+    // Draw localizer line with slash pattern (/ / / /)
+    ctx.save();
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.7; // Slightly transparent
+
+    // Calculate angle of the line
+    const dx = kekagCanvasPos.x - thresholdPos.x;
+    const dy = kekagCanvasPos.y - thresholdPos.y;
+    const lineLength = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+
+    // Draw slashes along the line
+    const slashLength = 10; // Length of each slash
+    const slashSpacing = 16; // Space between slashes
+    const slashAngle = angle + Math.PI / 4; // 45-degree angle relative to line
+
+    for (let dist = 0; dist < lineLength; dist += slashSpacing) {
+      const t = dist / lineLength;
+      const x = thresholdPos.x + dx * t;
+      const y = thresholdPos.y + dy * t;
+
+      // Draw slash at this position
+      const slashDx = Math.cos(slashAngle) * slashLength / 2;
+      const slashDy = Math.sin(slashAngle) * slashLength / 2;
+
+      ctx.beginPath();
+      ctx.moveTo(x - slashDx, y - slashDy);
+      ctx.lineTo(x + slashDx, y + slashDy);
+      ctx.stroke();
+    }
+
+    ctx.restore(); // Restore canvas state
+  },
+
+  drawHuesca: (ctx, width, height, scale, offsetX, offsetY, showHuesca) => {
+    if (!showHuesca) return;
+
+    // Draw Huesca zone rectangle (outline only, no fill)
+    ctx.save();
+    ctx.strokeStyle = '#d97706';  // Faded amber/orange color (was #f59e0b)
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.7;  // Slightly transparent for softer appearance
+
+    // Convert zone points to canvas coordinates
+    const zonePoints = HUESCA_ZONE.map(point => {
+      const pos = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, point.radial, point.distance);
+      return CoordinateUtils.latLonToCanvas(pos.lat, pos.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
+    });
+
+    // Draw rectangle outline only
+    ctx.beginPath();
+    ctx.moveTo(zonePoints[0].x, zonePoints[0].y);
+    for (let i = 1; i < zonePoints.length; i++) {
+      ctx.lineTo(zonePoints[i].x, zonePoints[i].y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.restore();
+
+    // Draw Huesca waypoints (display names without _HUE suffix)
+    const huescaPoints = {
+      'W1': 'W1_HUE',
+      'SW': 'SW_HUE',
+      'S1': 'S1_HUE',
+      'HUE': 'HUE_HUE',
+      'W': 'W_HUE',
+      'N': 'N_HUE',
+      'E': 'E_HUE',
+      'S': 'S_HUE'
+    };
+
+    Object.entries(huescaPoints).forEach(([displayName, internalName]) => {
+      const data = INSTRUMENTAL_POINTS[internalName];
+      if (!data) return;
+
+      const pos = CoordinateUtils.radialDistanceToLatLon(ARP.lat, ARP.lon, data.radial, data.distance);
+      const canvasPos = CoordinateUtils.latLonToCanvas(pos.lat, pos.lon, width, height, ARP.lat, ARP.lon, scale, offsetX, offsetY);
+
+      // Draw circle marker
+      ctx.fillStyle = '#d97706';  // Faded amber/orange color (was #f59e0b)
+      ctx.globalAlpha = 0.8;  // Slightly transparent
+      ctx.beginPath();
+      ctx.arc(canvasPos.x, canvasPos.y, 5, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Draw label (display name without _HUE)
+      ctx.fillStyle = '#d97706';  // Faded amber/orange color
+      ctx.globalAlpha = 0.85;  // Slightly more opaque for text readability
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(displayName, canvasPos.x + 8, canvasPos.y + 4);
+      ctx.globalAlpha = 1.0;  // Reset alpha
     });
   },
 
@@ -537,7 +718,7 @@ const CanvasRenderer = {
     return '↖';
   },
 
-  drawSIDs: (ctx, width, height, scale, panOffsetX, panOffsetY, showRunway30, showRunway12, showMilitaryDepartures) => {
+  drawSIDs: (ctx, width, height, scale, panOffsetX, panOffsetY, showRunway30, showRunway12, showMilitaryDepartures, selectedSID = null, dashOffset = 0) => {
     // Draw SID routes for teaching purposes
     const sidsToShow = [];
 
@@ -564,19 +745,36 @@ const CanvasRenderer = {
     // Track final waypoint positions to prevent label overlap
     const finalWaypointCounts = {};
 
+    // Track label positions for click detection
+    const labelPositions = [];
+
     uniqueSIDs.forEach((sid, index) => {
       // Use different colors for different SIDs
       const colors = ['#9333ea', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#8b5cf6'];
       const color = colors[index % colors.length];
 
-      // Add transparency for military SIDs to reduce visual clutter
-      if (sid.isMilitary) {
-        ctx.globalAlpha = 0.7;
+      // Check if this SID is selected
+      const isSelected = selectedSID === sid.designator;
+
+      // Fade all SIDs - selected gets full opacity, others are faded
+      if (isSelected) {
+        ctx.globalAlpha = 1.0;
+        ctx.lineWidth = 4;
+      } else {
+        // Base fading - 0.4 for regular SIDs, 0.3 for military
+        ctx.globalAlpha = sid.isMilitary ? 0.3 : 0.4;
+        ctx.lineWidth = 2;
       }
 
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]); // Dashed line
+
+      // Animated dashed line for selected SID
+      if (isSelected) {
+        ctx.setLineDash([10, 5]);
+        ctx.lineDashOffset = -dashOffset; // Animate by moving offset
+      } else {
+        ctx.setLineDash([5, 5]); // Dashed line
+      }
 
       // Get runway threshold as starting point
       const runwayId = sid.runways[0]; // Use first runway
@@ -640,7 +838,10 @@ const CanvasRenderer = {
         ctx.stroke();
         ctx.beginPath();
         ctx.fillStyle = color;
-        ctx.arc(waypointPos.x, waypointPos.y, 4, 0, 2 * Math.PI);
+
+        // Larger marker for selected SID
+        const markerRadius = isSelected ? 5 : 4;
+        ctx.arc(waypointPos.x, waypointPos.y, markerRadius, 0, 2 * Math.PI);
         ctx.fill();
 
         // Draw waypoint name (skip intermediate names for military SIDs)
@@ -687,16 +888,35 @@ const CanvasRenderer = {
         const labelOffset = finalWaypointCounts[waypointKey] * 15;
         finalWaypointCounts[waypointKey]++;
 
-        // Reset transparency for labels to make them fully visible
-        ctx.globalAlpha = 1.0;
+        // Labels are more visible - 0.85 for unselected, 1.0 for selected
+        ctx.globalAlpha = isSelected ? 1.0 : 0.85;
         ctx.fillStyle = color;
-        ctx.font = 'bold 11px monospace';
-        ctx.fillText(sid.designator, lastWP.x + 8, lastWP.y + 18 + labelOffset);
+        ctx.font = isSelected ? 'bold 12px monospace' : 'bold 11px monospace';
+
+        const labelX = lastWP.x + 8;
+        const labelY = lastWP.y + 18 + labelOffset;
+        ctx.fillText(sid.designator, labelX, labelY);
+
+        // Calculate label bounding box for click detection
+        const metrics = ctx.measureText(sid.designator);
+        const labelWidth = metrics.width;
+        const labelHeight = 12; // Approximate font height
+
+        labelPositions.push({
+          designator: sid.designator,
+          x: labelX,
+          y: labelY - labelHeight,
+          width: labelWidth,
+          height: labelHeight
+        });
       }
 
       ctx.setLineDash([]); // Reset to solid line
+      ctx.lineDashOffset = 0; // Reset dash offset
       ctx.globalAlpha = 1.0; // Reset transparency
     });
+
+    return labelPositions;
   },
 
   drawDrawingRoute: (ctx, drawingPoints) => {

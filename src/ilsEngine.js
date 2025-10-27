@@ -376,33 +376,71 @@ const ILSEngine = {
     // Use bearing to threshold for intercept (more direct and forgiving)
     let updatedAircraft = ILSEngine.turnTowardsBearing(aircraft, bearingToThreshold, performance.turnRate, deltaTime);
 
-    // Descend to 5000 ft while approaching KEKAG
+    // Descend to 5000 ft while approaching entry point
     updatedAircraft.assignedAltitude = 5000;
-    updatedAircraft.assignedSpeed = ILS_30R.speeds[aircraft.type].final;
 
-    // Check if we've passed KEKAG (for direct KEKAG entries)
-    let passedKekag = true; // Default true for IF_ILS entries
+    // Speed management - only decelerate after passing entry waypoint
+    let passedEntryPoint = false;
+    let distanceToEntry = 0;
+
     if (updatedAircraft.ilsApproach.entryPoint === 'KEKAG') {
+      // For KEKAG - check if we've passed it
       const kekagData = INSTRUMENTAL_POINTS['KEKAG'];
       const kekagPosition = CoordinateUtils.radialDistanceToLatLon(
         ARP.lat, ARP.lon,
         kekagData.radial, kekagData.distance
       );
 
-      const distanceToKekag = ILSEngine.calculateDistance(
+      distanceToEntry = ILSEngine.calculateDistance(
         aircraft.position.lat, aircraft.position.lon,
         kekagPosition.lat, kekagPosition.lon
       );
 
-      // Consider passed KEKAG if we're within 3 NM or already past it (closer to threshold)
-      passedKekag = distanceToKekag < 3 || distanceToThreshold < 18;
+      // Consider passed KEKAG if we're within 2 NM or already past it (closer to threshold)
+      passedEntryPoint = distanceToEntry < 2 || distanceToThreshold < 18;
+    } else if (updatedAircraft.ilsApproach.entryPoint === 'IF_ILS') {
+      // For IF_ILS - check if we've passed it
+      const ifData = INSTRUMENTAL_POINTS['IF_ILS'];
+      const ifPosition = CoordinateUtils.radialDistanceToLatLon(
+        ARP.lat, ARP.lon,
+        ifData.radial, ifData.distance
+      );
+
+      distanceToEntry = ILSEngine.calculateDistance(
+        aircraft.position.lat, aircraft.position.lon,
+        ifPosition.lat, ifPosition.lon
+      );
+
+      // Consider passed IF_ILS if we're within 2 NM or already past it
+      passedEntryPoint = distanceToEntry < 2 || distanceToThreshold < 12;
+    } else {
+      // For arc entries (YARZU/GODPI) - already past entry point when in this phase
+      passedEntryPoint = true;
     }
 
-    // Start final approach (glideslope) only after passing KEKAG
+    // Gradual speed reduction - maintain speed until passing entry point
+    const approachSpeed = ILS_30R.speeds[aircraft.type].approach;
+    const finalSpeed = ILS_30R.speeds[aircraft.type].final;
+
+    if (!passedEntryPoint) {
+      // Before entry point - maintain approach speed (don't slow down yet)
+      if (distanceToEntry > 5.0) {
+        // Far from entry - maintain current speed
+        // No change to assignedSpeed
+      } else {
+        // Approaching entry - slow to approach speed
+        updatedAircraft.assignedSpeed = approachSpeed;
+      }
+    } else {
+      // After entry point - decelerate to final approach speed
+      updatedAircraft.assignedSpeed = finalSpeed;
+    }
+
+    // Start final approach (glideslope) only after passing entry point
     const headingError = Math.abs(((aircraft.heading - localizerTrack + 180) % 360) - 180);
     const established = headingError < 45 || distanceToThreshold < 8; // Very relaxed
 
-    if (passedKekag && established && distanceToThreshold < 15) {
+    if (passedEntryPoint && established && distanceToThreshold < 15) {
       console.log(`${aircraft.callsign}: Passed entry point, established on localizer, beginning glideslope descent`);
       updatedAircraft.ilsApproach.phase = 'FINAL_APPROACH';
       updatedAircraft.state = AIRCRAFT_STATES.APPROACH;

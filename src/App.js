@@ -34,11 +34,15 @@ import { HITACEngine } from './hitacEngine';
 const ZaragozaTMASimulator = () => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const sidLabelPositionsRef = useRef([]);
   const [showATZ, setShowATZ] = useState(true);
   const [showCTR, setShowCTR] = useState(true);
   const [showCorridor, setShowCorridor] = useState(false);
   const [showVisual, setShowVisual] = useState(false);
   const [showInstrumental, setShowInstrumental] = useState(false);
+  const [showIAC, setShowIAC] = useState(false);
+  const [showRWY30, setShowRWY30] = useState(false);
+  const [showHuesca, setShowHuesca] = useState(false);
   const [showSIDsRunway30, setShowSIDsRunway30] = useState(false);
   const [showSIDsRunway12, setShowSIDsRunway12] = useState(false);
   const [showMilitaryDepartures, setShowMilitaryDepartures] = useState(false);
@@ -75,6 +79,8 @@ const ZaragozaTMASimulator = () => {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [selectedSID, setSelectedSID] = useState(null);
+  const [sidDashOffset, setSidDashOffset] = useState(0);
   const [nextAircraftId, setNextAircraftId] = useState(1);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 1400, height: 900 });
   const [blinkingAircraftId, setBlinkingAircraftId] = useState(null);
@@ -359,6 +365,26 @@ const ZaragozaTMASimulator = () => {
 
     const scale = BASE_SCALE * zoom;
 
+    // Check if click is on any SID label first (higher priority than aircraft)
+    let clickedSID = null;
+    for (const label of sidLabelPositionsRef.current) {
+      if (
+        canvasClickX >= label.x &&
+        canvasClickX <= label.x + label.width &&
+        canvasClickY >= label.y &&
+        canvasClickY <= label.y + label.height
+      ) {
+        clickedSID = label.designator;
+        break;
+      }
+    }
+
+    // If a SID was clicked, toggle its selection
+    if (clickedSID) {
+      setSelectedSID(prevSelected => prevSelected === clickedSID ? null : clickedSID);
+      return; // Don't process aircraft selection
+    }
+
     // Check if click is near any aircraft
     let clickedAircraft = null;
     const clickRadius = 15; // pixels
@@ -387,7 +413,12 @@ const ZaragozaTMASimulator = () => {
       }
     }
 
-    // Update selection: set to clicked aircraft or null if empty space
+    // If neither SID nor aircraft clicked, deselect SID
+    if (!clickedAircraft) {
+      setSelectedSID(null);
+    }
+
+    // Update aircraft selection: set to clicked aircraft or null if empty space
     setSelectedAircraft(clickedAircraft);
   };
 
@@ -548,6 +579,7 @@ const ZaragozaTMASimulator = () => {
   // Simplified airborne spawn for scheduled scenarios (no formation)
   const handleScheduledAirborneSpawn = useCallback((callsign, type, altitude, waypoint, timeToWaypoint) => {
     console.log('Spawning scheduled aircraft:', callsign);
+
     // Get waypoint data
     const allWaypoints = { ...VISUAL_POINTS, ...INSTRUMENTAL_POINTS };
     const waypointData = allWaypoints[waypoint];
@@ -585,33 +617,45 @@ const ZaragozaTMASimulator = () => {
       spawnDistanceNM
     );
 
-    const newAircraft = {
-      id: nextAircraftId,
-      callsign: callsign,
-      position: spawnPosition,
-      altitude: altitude,
-      assignedAltitude: altitude,
-      heading: inboundHeading,
-      assignedHeading: inboundHeading,
-      speed: cruiseSpeed,
-      assignedSpeed: cruiseSpeed,
-      type: type,
-      state: AIRCRAFT_STATES.CRUISE,
-      navigationMode: 'HEADING_MODE',
-      isFormationMember: false,
-      formationPosition: 0,
-      formationLeader: false,
-      assignedSID: null,
-      sidWaypointIndex: 0,
-      sidComplete: false,
-      sidAltitudeCap: null,
-      assignedRoute: null,
-      routeWaypointIndex: 0,
-      drawnRouteWaypoints: null,
-      randomWaypoint: null
-    };
+    // Atomically update both aircraft list and nextAircraftId to prevent duplicate IDs
+    setAircraft(prev => {
+      const aircraftId = nextAircraftId;
 
-    setAircraft(prev => [...prev, newAircraft]);
+      // Check if aircraft with this callsign already exists (prevent duplicates)
+      if (prev.some(plane => plane.callsign === callsign)) {
+        console.warn(`Aircraft ${callsign} already exists, skipping spawn`);
+        return prev;
+      }
+
+      const newAircraft = {
+        id: aircraftId,
+        callsign: callsign,
+        position: spawnPosition,
+        altitude: altitude,
+        assignedAltitude: altitude,
+        heading: inboundHeading,
+        assignedHeading: inboundHeading,
+        speed: cruiseSpeed,
+        assignedSpeed: cruiseSpeed,
+        type: type,
+        state: AIRCRAFT_STATES.CRUISE,
+        navigationMode: 'HEADING_MODE',
+        isFormationMember: false,
+        formationPosition: 0,
+        formationLeader: false,
+        assignedSID: null,
+        sidWaypointIndex: 0,
+        sidComplete: false,
+        sidAltitudeCap: null,
+        assignedRoute: null,
+        routeWaypointIndex: 0,
+        drawnRouteWaypoints: null,
+        randomWaypoint: null
+      };
+
+      return [...prev, newAircraft];
+    });
+
     setNextAircraftId(prev => prev + 1);
   }, [nextAircraftId]);
 
@@ -1129,31 +1173,39 @@ const ZaragozaTMASimulator = () => {
       const adjustedDeltaTime = isPaused ? 0 : deltaTime * simulationSpeed; // Pause simulation when isPaused
       lastTime = now;
 
-      // Update simulation time
-      setSimulationTime(prev => prev + adjustedDeltaTime);
+      // Update SID dash offset for animation (only when not paused)
+      if (!isPaused && selectedSID) {
+        setSidDashOffset(prev => (prev + 1) % 100); // Loop animation
+      }
 
-      // Process scheduled spawns
-      setScheduledSpawns(prev => {
-        const remainingSpawns = [];
-        const currentSimTime = simulationTime + adjustedDeltaTime;
+      // Update simulation time and process scheduled spawns atomically
+      setSimulationTime(prevTime => {
+        const newSimTime = prevTime + adjustedDeltaTime;
 
-        prev.forEach(spawn => {
-          if (spawn.spawnTime <= currentSimTime) {
-            // Time to spawn this aircraft
-            handleScheduledAirborneSpawn(
-              spawn.callsign,
-              spawn.type,
-              spawn.flightLevel * 100, // Convert FL to feet
-              spawn.waypoint,
-              spawn.timeToWaypoint
-            );
-          } else {
-            // Not ready yet, keep it
-            remainingSpawns.push(spawn);
-          }
+        // Process scheduled spawns using the updated simulation time
+        setScheduledSpawns(prevSpawns => {
+          const remainingSpawns = [];
+
+          prevSpawns.forEach(spawn => {
+            if (spawn.spawnTime <= newSimTime) {
+              // Time to spawn this aircraft
+              handleScheduledAirborneSpawn(
+                spawn.callsign,
+                spawn.type,
+                spawn.flightLevel * 100, // Convert FL to feet
+                spawn.waypoint,
+                spawn.timeToWaypoint
+              );
+            } else {
+              // Not ready yet, keep it
+              remainingSpawns.push(spawn);
+            }
+          });
+
+          return remainingSpawns;
         });
 
-        return remainingSpawns;
+        return newSimTime;
       });
 
       // Update all aircraft positions and states
@@ -1189,7 +1241,7 @@ const ZaragozaTMASimulator = () => {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isPaused, simulationSpeed, simulationTime, scheduledSpawns, activeDelta, handleScheduledAirborneSpawn]);
+  }, [isPaused, simulationSpeed, simulationTime, scheduledSpawns, activeDelta, handleScheduledAirborneSpawn, selectedSID]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1260,7 +1312,11 @@ const ZaragozaTMASimulator = () => {
     CanvasRenderer.drawARP(ctx, centerX, centerY);
     CanvasRenderer.drawVisualPoints(ctx, width, height, scale, panOffset.x, panOffset.y, showVisual);
     CanvasRenderer.drawInstrumentalPoints(ctx, width, height, scale, panOffset.x, panOffset.y, showInstrumental);
-    CanvasRenderer.drawSIDs(ctx, width, height, scale, panOffset.x, panOffset.y, showSIDsRunway30, showSIDsRunway12, showMilitaryDepartures);
+    CanvasRenderer.drawIACPoints(ctx, width, height, scale, panOffset.x, panOffset.y, showIAC);
+    CanvasRenderer.drawRWY30Points(ctx, width, height, scale, panOffset.x, panOffset.y, showRWY30);
+    CanvasRenderer.drawHuesca(ctx, width, height, scale, panOffset.x, panOffset.y, showHuesca);
+    const sidLabels = CanvasRenderer.drawSIDs(ctx, width, height, scale, panOffset.x, panOffset.y, showSIDsRunway30, showSIDsRunway12, showMilitaryDepartures, selectedSID, sidDashOffset);
+    sidLabelPositionsRef.current = sidLabels;
 
     // Draw holding patterns if enabled
     if (showHoldings) {
@@ -1349,7 +1405,7 @@ const ZaragozaTMASimulator = () => {
       );
     }
 
-  }, [showATZ, showCTR, showCorridor, showVisual, showInstrumental, showSIDsRunway30, showSIDsRunway12, showMilitaryDepartures, showHoldings, activeDelta, zoom, panOffset, aircraft, selectedAircraft, canvasDimensions, blinkingAircraftId, blinkState, isDrawingMode, drawingPoints, measurementActive, measurementOrigin, currentMousePos, anchoredMeasurements]);
+  }, [showATZ, showCTR, showCorridor, showVisual, showInstrumental, showIAC, showRWY30, showHuesca, showSIDsRunway30, showSIDsRunway12, showMilitaryDepartures, showHoldings, activeDelta, zoom, panOffset, aircraft, selectedAircraft, canvasDimensions, blinkingAircraftId, blinkState, isDrawingMode, drawingPoints, measurementActive, measurementOrigin, currentMousePos, anchoredMeasurements, selectedSID, sidDashOffset]);
 
   return (
     <div className="w-full h-screen bg-gray-900 flex flex-col overflow-hidden">
@@ -1541,6 +1597,12 @@ const ZaragozaTMASimulator = () => {
         setShowVisual={setShowVisual}
         showInstrumental={showInstrumental}
         setShowInstrumental={setShowInstrumental}
+        showIAC={showIAC}
+        setShowIAC={setShowIAC}
+        showRWY30={showRWY30}
+        setShowRWY30={setShowRWY30}
+        showHuesca={showHuesca}
+        setShowHuesca={setShowHuesca}
         showSIDsRunway30={showSIDsRunway30}
         setShowSIDsRunway30={setShowSIDsRunway30}
         showSIDsRunway12={showSIDsRunway12}

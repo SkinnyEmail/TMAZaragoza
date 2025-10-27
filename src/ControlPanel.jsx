@@ -9,6 +9,9 @@ const ControlPanel = ({
   showCorridor, setShowCorridor,
   showVisual, setShowVisual,
   showInstrumental, setShowInstrumental,
+  showIAC, setShowIAC,
+  showRWY30, setShowRWY30,
+  showHuesca, setShowHuesca,
   showSIDsRunway30, setShowSIDsRunway30,
   showSIDsRunway12, setShowSIDsRunway12,
   showMilitaryDepartures, setShowMilitaryDepartures,
@@ -183,6 +186,7 @@ const ControlPanel = ({
                   // Close other submenus
                   setDeltasSubmenuOpen(false);
                   setSidsSubmenuOpen(false);
+                  setProceduresSubmenuOpen(false);
                 }}
                 className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center justify-between font-mono text-sm"
               >
@@ -241,6 +245,33 @@ const ControlPanel = ({
                     </div>
                     Instrumental
                   </button>
+                  <button
+                    onClick={() => setShowIAC(!showIAC)}
+                    className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center gap-2 font-mono text-sm"
+                  >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${showIAC ? 'bg-cyan-500 border-cyan-500' : 'border-gray-400'}`}>
+                      {showIAC && <span className="text-white text-xs">✓</span>}
+                    </div>
+                    IAC
+                  </button>
+                  <button
+                    onClick={() => setShowRWY30(!showRWY30)}
+                    className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center gap-2 font-mono text-sm"
+                  >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${showRWY30 ? 'bg-purple-500 border-purple-500' : 'border-gray-400'}`}>
+                      {showRWY30 && <span className="text-white text-xs">✓</span>}
+                    </div>
+                    RWY30
+                  </button>
+                  <button
+                    onClick={() => setShowHuesca(!showHuesca)}
+                    className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center gap-2 font-mono text-sm"
+                  >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${showHuesca ? 'bg-amber-500 border-amber-500' : 'border-gray-400'}`}>
+                      {showHuesca && <span className="text-white text-xs">✓</span>}
+                    </div>
+                    Huesca
+                  </button>
                 </div>
               )}
             </div>
@@ -253,6 +284,7 @@ const ControlPanel = ({
                   // Close other submenus
                   setAerodromeSubmenuOpen(false);
                   setSidsSubmenuOpen(false);
+                  setProceduresSubmenuOpen(false);
                 }}
                 className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center justify-between font-mono text-sm"
               >
@@ -302,6 +334,7 @@ const ControlPanel = ({
                   // Close other submenus
                   setAerodromeSubmenuOpen(false);
                   setDeltasSubmenuOpen(false);
+                  setProceduresSubmenuOpen(false);
                 }}
                 className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center justify-between font-mono text-sm"
               >
@@ -369,7 +402,10 @@ const ControlPanel = ({
                   style={menuStyles.procedures}
                 >
                   <button
-                    onClick={() => setShowHoldings(!showHoldings)}
+                    onClick={() => {
+                      setShowHoldings(!showHoldings);
+                      // Keep submenu open, just like Aerodrome items
+                    }}
                     className="w-full px-4 py-2 text-white hover:bg-gray-600 text-left flex items-center gap-2 font-mono text-sm"
                   >
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${showHoldings ? 'bg-yellow-500 border-yellow-500' : 'border-gray-400'}`}>
@@ -392,6 +428,7 @@ const ControlPanel = ({
             // Close other main menus and all submenus
             setDrawingsMenuOpen(false);
             setCommandsMenuOpen(false);
+            setSystemMenuOpen(false);
             setAerodromeSubmenuOpen(false);
             setDeltasSubmenuOpen(false);
             setSidsSubmenuOpen(false);
@@ -439,6 +476,7 @@ const ControlPanel = ({
             // Close other main menus and all submenus
             setDrawingsMenuOpen(false);
             setSpawnMenuOpen(false);
+            setSystemMenuOpen(false);
             setAerodromeSubmenuOpen(false);
             setDeltasSubmenuOpen(false);
             setSidsSubmenuOpen(false);
@@ -905,7 +943,18 @@ const ControlPanel = ({
       {/* System Button */}
       <div className="relative" ref={systemMenuRef}>
         <button
-          onClick={() => setSystemMenuOpen(!systemMenuOpen)}
+          onClick={() => {
+            setSystemMenuOpen(!systemMenuOpen);
+            // Close other main menus and all submenus
+            setDrawingsMenuOpen(false);
+            setSpawnMenuOpen(false);
+            setCommandsMenuOpen(false);
+            setAerodromeSubmenuOpen(false);
+            setDeltasSubmenuOpen(false);
+            setSidsSubmenuOpen(false);
+            setProceduresSubmenuOpen(false);
+            setArrivalsSubmenuOpen(false);
+          }}
           className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded font-mono text-sm"
         >
           System
@@ -918,6 +967,7 @@ const ControlPanel = ({
             <button
               onClick={() => {
                 setIsPaused(!isPaused);
+                setSystemMenuOpen(false);
               }}
               className="w-full px-4 py-2 text-left font-mono text-sm text-white hover:bg-gray-600 cursor-pointer border-b border-gray-600"
             >

@@ -91,8 +91,24 @@ const INSTRUMENTAL_POINTS = {
   'IF_ILS': { radial: 118.51, distance: 14.4 },
   // VOR 30R Approach Points
   'IF_VOR30R': { radial: 108, distance: 16.0 },
-  'FAF_VOR30R': { radial: 108, distance: 6.0 }
+  'FAF_VOR30R': { radial: 108, distance: 6.0 },
+  // Huesca points (navigable with _HUE suffix)
+  'W1_HUE': { radial: 32, distance: 30.0 },
+  'SW_HUE': { radial: 58, distance: 29.5 },
+  'S1_HUE': { radial: 81, distance: 40.7 },
+  'HUE_HUE': { radial: 58, distance: 40.9 },
+  'W_HUE': { radial: 50, distance: 36.9 },
+  'N_HUE': { radial: 49, distance: 43.1 },
+  'E_HUE': { radial: 56, distance: 46.6 },
+  'S_HUE': { radial: 60, distance: 38.7 }
 };
+
+const HUESCA_ZONE = [
+  { radial: 32, distance: 27.6 },
+  { radial: 33, distance: 42.7 },
+  { radial: 68, distance: 52.3 },
+  { radial: 81, distance: 40.7 }
+];
 
 const RUNWAY_DATA = {
   '12L': { heading: 120, threshold: { lat: 41 + 40/60 + 8.62/3600, lon: -(1 + 2/60 + 23.40/3600) } },
@@ -108,9 +124,9 @@ const FAP_ILS_30R = {
 };
 
 const AIRCRAFT_TYPES = {
-  'VFR': { color: '#00ff00', maxSpeed: 250, cruiseSpeed: 120, turnRate: 3 },
+  'VFR': { color: '#4ade80', maxSpeed: 250, cruiseSpeed: 120, turnRate: 3 },  // Softer green (was #00ff00)
   'IFR': { color: '#00d4ff', maxSpeed: 450, cruiseSpeed: 250, turnRate: 2 },  // Brighter cyan for visibility
   'Military': { color: '#ff6600', maxSpeed: 600, cruiseSpeed: 350, turnRate: 4 }
 };
 
-export { ARP, TMA_VERTICES, CTR_RECTANGLE, DELTAS, CIRCLE_DELTAS, VISUAL_POINTS, INSTRUMENTAL_POINTS, RUNWAY_DATA, AIRCRAFT_TYPES, FAP_ILS_30R };
+export { ARP, TMA_VERTICES, CTR_RECTANGLE, DELTAS, CIRCLE_DELTAS, VISUAL_POINTS, INSTRUMENTAL_POINTS, HUESCA_ZONE, RUNWAY_DATA, AIRCRAFT_TYPES, FAP_ILS_30R };
